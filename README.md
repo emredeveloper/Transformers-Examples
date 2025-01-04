@@ -1,1 +1,1 @@
-#Transformers ve GENEL YAPAY ZEKA hakkında öğrendiğimm şeyleri paylaşacağım.
+# Transformers ve GENEL YAPAY ZEKA hakkında öğrendiğimm şeyleri paylaşacağım.
