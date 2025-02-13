@@ -2,7 +2,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from huggingface_hub import login
 
 # Hugging Face giriş işlemi
-login(token="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")
+login(token="")
 
 print("Başarıyla giriş yapıldı!")
 
