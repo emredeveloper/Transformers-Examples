@@ -1,15 +1,14 @@
-```markdown
 # AI Learning Repository
 
 This repository encapsulates detailed experiments and learnings related to Transformers and General AI. The repository is structured so that each file serves as an individual module covering a specific concept or experiment. Below is a comprehensive list of all the files currently included:
 
 ## Repository Files
 
-- **README.md**  
-  This file provides an overview of the repository and lists all its contents with descriptions.
+- **DyT_vs_RMSNorm.ipynb**  
+  A notebook comparing the performance differences between DyT and RMSNorm.
 
 - **Mixture_of_Experts.ipynb**  
-  A Jupyter Notebook that explains the fundamentals of the Mixture of Experts (MoE) model with detailed code examples.
+  A Jupyter Notebook that explains the fundamentals of the Mixture of Experts (MoE) model with basic code examples.
 
 - **Projeksiyon_Katmanları.ipynb**  
   A notebook demonstrating the basics of projection layers, including their implementation and theory.
@@ -17,17 +16,28 @@ This repository encapsulates detailed experiments and learnings related to Trans
 - **SLM_+_COT_FINETUNE.ipynb**  
   A notebook for the implementation of a small language model featuring chain-of-thought reasoning.
 
-- **Transformer_Experiments.ipynb**  
-  Contains experiments exploring various transformer architectures and their applications.
+- **Transformer_Attention_FFN_Varyantlari_Performans_T.ipynb**  
+  A comprehensive analysis of various transformer variants and their performance.
 
-- **Data_Preprocessing.ipynb**  
-  Details data preparation techniques necessary for training AI models effectively.
+### Project Directories
+
+- **Genel-1**  
+  General AI concepts and implementations.
+
+- **Genel-2**  
+  Additional general AI implementations including benimmodel.py.
+
+- **Tokenizer**  
+  Implementation and examples related to tokenization.
+
+- **Transformers-1**  
+  Transformer architecture implementations and experiments.
+
+- **llama**  
+  LLaMA model related implementations and experiments.
 
 - **LICENSE**  
   Contains the licensing terms for the repository.
-
-- *Additional files and notebooks*  
-  As the research progresses, new notebooks, scripts, and documentation may be added individually.
 
 ## How to Use
 
@@ -44,4 +54,3 @@ Contributions, suggestions, and feedback are welcome. Please observe the reposit
 ## License
 
 See the LICENSE file for further details on usage and distribution.
-```
