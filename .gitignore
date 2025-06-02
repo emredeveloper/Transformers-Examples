@@ -29,6 +29,11 @@ ENV/
 env.bak/
 venv.bak/
 
+# Add these lines
+login-hf.py
+*.env
+credentials.json
+
 # Jupyter Notebook
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
