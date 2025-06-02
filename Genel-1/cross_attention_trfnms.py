@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import torch
 import torch.nn as nn
 import math
@@ -265,7 +264,6 @@ def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int
         if p.dim() > 1:
             nn.init.xavier_uniform_(p)
 
-=======
 import torch
 import torch.nn as nn
 import math
@@ -532,5 +530,4 @@ def build_transformer(src_vocab_size: int, tgt_vocab_size: int, src_seq_len: int
         if p.dim() > 1:
             nn.init.xavier_uniform_(p)
 
->>>>>>> 6e953b09772621b8cc37bb192b05fdf7daad2d9a
     return transformer

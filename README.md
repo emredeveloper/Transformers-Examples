@@ -1,56 +1,96 @@
-# AI Learning Repository
+# AI Learning and Implementation Repository
 
-This repository encapsulates detailed experiments and learnings related to Transformers and General AI. The repository is structured so that each file serves as an individual module covering a specific concept or experiment. Below is a comprehensive list of all the files currently included:
+This repository contains comprehensive implementations and experiments related to Transformers and modern AI architectures. The codebase includes various implementations of transformer architectures, attention mechanisms, and deep learning models, organized into specific domains and use cases.
 
-## Repository Files
+## Core Components
 
-- **DyT_vs_RMSNorm.ipynb**  
-  A notebook comparing the performance differences between DyT and RMSNorm.
+### Transformer Implementations
+- **Core Transformer Architecture**
+  - Implementation of transformer blocks, attention mechanisms, and positional encodings
+  - Custom implementations of encoder-decoder architectures
+  - Various attention mechanisms including standard and hybrid attention
 
-- **Mixture_of_Experts.ipynb**  
-  A Jupyter Notebook that explains the fundamentals of the Mixture of Experts (MoE) model with basic code examples.
+### Language Models
+- **Small Language Model (SLM)**
+  - Implementation with Chain-of-Thought (CoT) reasoning capabilities
+  - Fine-tuning scripts and examples
+  - MMLU evaluation framework
 
-- **Projeksiyon_Katmanları.ipynb**  
-  A notebook demonstrating the basics of projection layers, including their implementation and theory.
+- **LLaMA Model**
+  - Custom LLaMA model implementations
+  - Training and inference utilities
+  - Checkpoint management system
 
-- **SLM_+_COT_FINETUNE.ipynb**  
-  A notebook for the implementation of a small language model featuring chain-of-thought reasoning.
+### Vision-Language Models
+- **Vision Transformer Implementations**
+  - Base ViT implementation
+  - Cross-attention mechanisms for vision-language tasks
+  - DeepSeek vision transformer variants
 
-- **Transformer_Attention_FFN_Varyantlari_Performans_T.ipynb**  
-  A comprehensive analysis of various transformer variants and their performance.
+### Advanced Components
+- **Mixture of Experts (MoE)**
+  - Implementation of MoE architecture
+  - Training and routing mechanisms
+  - Performance benchmarks
 
-### Project Directories
+- **Attention and FFN Variants**
+  - Dynamic Token Mixer (DyT) vs RMSNorm comparisons
+  - Various feed-forward network implementations
+  - Projection layer experiments
 
-- **Genel-1**  
-  General AI concepts and implementations.
+## Project Structure
 
-- **Genel-2**  
-  Additional general AI implementations including benimmodel.py.
+### Main Directories:
+- `Genel-1/`: Core transformer implementations and basic components
+  - Cross-attention transformers
+  - Mixed architecture implementations
+  - Basic training utilities
 
-- **Tokenizer**  
-  Implementation and examples related to tokenization.
+- `Genel-2/`: Advanced model implementations
+  - Vision-language transformers
+  - DeepSeek transformer variants
+  - Custom model architectures
 
-- **Transformers-1**  
-  Transformer architecture implementations and experiments.
+- `Genel-3/`: Experimental features
+  - Hybrid attention mechanisms
+  - Flash attention implementations
+  - Video and multimodal models
 
-- **llama**  
-  LLaMA model related implementations and experiments.
+- `Genel-4/`: Additional experiments and benchmarks
+  - MMLU evaluation scripts
+  - Fine-tuning experiments
+  - Performance comparisons
 
-- **LICENSE**  
-  Contains the licensing terms for the repository.
+- `Tokenizer/`: Tokenization utilities and implementations
 
-## How to Use
+- `Time series - Transformers/`: Time-series specific implementations
 
-Each notebook is designed for interactive use, offering both the theoretical background and practical examples. Open the notebooks in your preferred interactive Python environment (e.g., Jupyter Notebook) to explore the concepts in depth.
+- `Vision Transformers/`: Vision-specific transformer architectures
 
-## Updates
+### Key Notebooks:
+- `DyT_vs_RMSNorm.ipynb`: Performance comparison between DyT and RMSNorm
+- `Mixture_of_Experts.ipynb`: MoE implementation and experiments
+- `Projeksiyon_Katmanları.ipynb`: Projection layer implementation and theory
+- `SLM_+_COT_FINETUNE.ipynb`: Small language model with Chain-of-Thought training
+- `Transformer_Attention_FFN_Varyantlari_Performans_T.ipynb`: Comprehensive analysis of transformer variants
 
-This README is periodically updated to reflect the addition of new files and experiments. Check back regularly for the latest content and enhancements.
+## Installation and Usage
+
+1. Clone the repository
+2. Install required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Each directory contains specific README files with detailed instructions for running experiments and models.
 
 ## Contributing
 
-Contributions, suggestions, and feedback are welcome. Please observe the repository guidelines for contributing, and submit your pull requests for review.
+Contributions are welcome! Please read through the contribution guidelines before submitting pull requests.
 
 ## License
 
-See the LICENSE file for further details on usage and distribution.
+See the LICENSE file for usage terms and conditions.
+
+## Updates
+
+This repository is actively maintained and regularly updated with new implementations and experiments. Check the commit history for the latest additions and improvements.
