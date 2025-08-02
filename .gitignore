@@ -59,8 +59,11 @@ datasets/
 data/
 *.csv
 *.json
-*.txt
 *.h5
+
+# Allow requirements files
+!requirements.txt
+!**/requirements.txt
 
 # Images and media (uncomment if needed)
 # *.jpg
