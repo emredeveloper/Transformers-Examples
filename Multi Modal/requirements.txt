@@ -1,0 +1,16 @@
+# Additional requirements for multimodal examples
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+transformers>=4.30.0
+
+# Computer Vision and Media Processing
+opencv-python>=4.8.0
+Pillow>=9.5.0
+
+# Scientific Computing
+numpy>=1.21.0
+matplotlib>=3.5.0
+
+# Environment Management
+python-dotenv>=1.0.0
