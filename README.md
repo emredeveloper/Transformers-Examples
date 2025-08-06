@@ -1,140 +1,229 @@
 # Transformers Examples
 
-This repository contains various examples and implementations using the Transformers library, demonstrating different aspects of modern deep learning models including language models, vision transformers, multimodal models, and more.
+Bu repository, modern derin öğrenme modellerinin farklı yönlerini gösteren Transformers kütüphanesi kullanılarak geliştirilmiş çeşitli örnekler ve implementasyonlar içerir. Dil modelleri, vision transformers, multimodal modeller ve daha fazlasını kapsar.
 
-## 📁 Repository Structure
+## 📁 Repository Yapısı
 
-### Core Directories
+### Ana Dizinler
 
-- **`Genel-1/`** - Basic transformer implementations and configuration examples
-- **`Genel-2/`** - Advanced transformer models including vision transformers and multimodal examples
-- **`Genel-3/`** - Additional transformer variants and experiments
-- **`Genel-4/`** - Performance comparisons and fine-tuning examples
-- **`Genel-5/`** - Advanced techniques and model optimizations
-- **`Multi Modal/`** - Multimodal transformer implementations for video, audio, and text
-- **`Vision Transformers/`** - Vision transformer models and applications
-- **`Time series - Transformers/`** - Time series analysis using transformer models
-- **`Tokenizer/`** - Custom tokenizer implementations and training
-- **`llama/`** - LLaMA model implementation and utilities
-- **`Qwen3/`** - Qwen 3 model examples and usage
+- **`Architecture/`** - **YENİ!** RoPE (Rotary Position Embedding) karşılaştırmaları ve transformer mimarisi örnekleri
+- **`Genel-1/`** - Temel transformer implementasyonları ve konfigürasyon örnekleri
+- **`Genel-2/`** - Gelişmiş transformer modelleri (vision transformers ve multimodal örnekler)
+- **`Genel-3/`** - Ek transformer varyantları ve deneyler
+- **`Genel-4/`** - Performans karşılaştırmaları ve fine-tuning örnekleri
+- **`Genel-5/`** - İleri teknikler ve model optimizasyonları
+- **`Multi Modal/`** - Video, ses ve metin için multimodal transformer implementasyonları
+- **`Vision Transformers/`** - Vision transformer modelleri ve uygulamaları
+- **`Time series - Transformers/`** - Transformer modelleri kullanarak zaman serisi analizi
+- **`Tokenizer/`** - Özel tokenizer implementasyonları ve eğitimi
+- **`llama/`** - LLaMA model implementasyonu ve utilities
+- **`Qwen3/`** - Qwen 3 model örnekleri ve kullanımı
+- **`finetuned-llm/`** - Fine-tuned dil modeli checkpoint'leri
+- **`archive/`** - MMLU benchmark sonuçları ve arşivlenmiş dosyalar
 
-### Key Files
+### Önemli Dosyalar
 
-- **`test-time-scaling.py`** - Test-time scaling implementation for language models
+- **`test-time-scaling.py`** - Dil modelleri için test-time scaling implementasyonu
+- **`requirements.txt`** - Tüm gerekli Python bağımlılıkları
+- **`setup.sh`** - Otomatik kurulum script'i
+- **`.env.example`** - Çevre değişkenleri şablonu
+- **`CONTRIBUTING.md`** - Katkıda bulunma rehberi
 
-## 🚀 Quick Start
+## 🚀 Hızlı Başlangıç
 
-### Prerequisites
+### Gereksinimler
 
-Make sure you have Python 3.7+ installed on your system.
+Sisteminizde Python 3.7+ yüklü olduğundan emin olun.
 
-### Installation
+### Kurulum
 
-1. Clone the repository:
+**Otomatik Kurulum (Önerilen):**
+
+```bash
+# Repository'yi klonlayın
+git clone https://github.com/emredeveloper/Transformers-Examples.git
+cd Transformers-Examples
+
+# Otomatik kurulum script'ini çalıştırın
+chmod +x setup.sh
+./setup.sh --venv
+```
+
+**Manuel Kurulum:**
+
+1. Repository'yi klonlayın:
+
 ```bash
 git clone https://github.com/emredeveloper/Transformers-Examples.git
 cd Transformers-Examples
 ```
 
-2. Install the required dependencies:
+2. Virtual environment oluşturun (önerilen):
+
+```bash
+python -m venv .venv
+# Windows için:
+.venv\Scripts\activate
+# Linux/Mac için:
+source .venv/bin/activate
+```
+
+3. Bağımlılıkları yükleyin:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Set up your Hugging Face token (optional, for accessing private models):
+4. Çevre değişkenlerini ayarlayın:
+
 ```bash
-export HUGGINGFACE_TOKEN="your_token_here"
+# .env.example dosyasını .env olarak kopyalayın
+copy .env.example .env  # Windows
+cp .env.example .env    # Linux/Mac
+
+# .env dosyasını düzenleyip Hugging Face token'ınızı ekleyin
 ```
 
-## 📖 Usage Examples
+## 📖 Kullanım Örnekleri
 
-### Basic Transformer Usage
+### RoPE Karşılaştırması (YENİ!)
+
+```bash
+cd Architecture
+python partial-rope.py
+```
+
+### Temel Transformer Kullanımı
+
 ```bash
 cd Genel-1
 python app.py
 ```
 
 ### Vision Transformers
+
 ```bash
 cd "Vision Transformers"
 jupyter notebook sglip2.ipynb
 ```
 
-### Multimodal Examples
+### Multimodal Örnekler
+
 ```bash
 cd "Multi Modal"
 python basic-multimodal.py
 ```
 
-### LLaMA Model
+### LLaMA Modeli
+
 ```bash
 cd llama
 python run_cpu.py
 ```
 
-### Tokenizer Training
+### Tokenizer Eğitimi
+
 ```bash
 cd Tokenizer
 python tokenizer.py
 ```
 
-## 🔧 Configuration
+### Test-Time Scaling
 
-Many examples support configuration through environment variables:
+```bash
+python test-time-scaling.py
+```
 
-- `HUGGINGFACE_TOKEN`: Your Hugging Face API token
-- `CUDA_VISIBLE_DEVICES`: GPU device selection
-- `MODEL_CACHE_DIR`: Directory for caching downloaded models
+## ⚙️ Konfigürasyon
 
-## 📝 Examples Overview
+Birçok örnek çevre değişkenleri aracılığıyla konfigürasyonu destekler:
 
-### Language Models
-- GPT-2 configuration and fine-tuning
-- DeepSeek transformer implementations
-- Qwen 3 model usage
-- Test-time scaling techniques
+- `HUGGINGFACE_TOKEN`: Hugging Face API token'ınız
+- `CUDA_VISIBLE_DEVICES`: GPU cihaz seçimi
+- `MODEL_CACHE_DIR`: İndirilen modeller için cache dizini
 
-### Vision Models
-- Vision Transformer (ViT) implementations
-- SGLIP-2 multimodal understanding
-- Image classification examples
+## 📝 Örneklere Genel Bakış
 
-### Multimodal Models
-- Video, audio, and text processing
-- Cross-modal attention mechanisms
-- Multimodal fusion techniques
+### Dil Modelleri
 
-### Time Series
-- Transformer-based time series forecasting
-- Sequence-to-sequence modeling
+- GPT-2 konfigürasyonu ve fine-tuning
+- DeepSeek transformer implementasyonları
+- Qwen 3 model kullanımı
+- Test-time scaling teknikleri
+- RoPE (Rotary Position Embedding) karşılaştırmaları
 
-### Advanced Techniques
+### Vision Modelleri
+
+- Vision Transformer (ViT) implementasyonları
+- SGLIP-2 multimodal anlayış
+- Görüntü sınıflandırma örnekleri
+
+### Multimodal Modeller
+
+- Video, ses ve metin işleme
+- Cross-modal attention mekanizmaları
+- Multimodal fusion teknikleri
+
+### Zaman Serileri
+
+- Transformer tabanlı zaman serisi tahmini
+- Sequence-to-sequence modelleme
+
+### İleri Teknikler
+
 - Mixture of Experts (MoE)
-- Cross-attention mechanisms
-- Custom tokenization strategies
-- Model optimization techniques
+- Cross-attention mekanizmaları
+- Özel tokenization stratejileri
+- Model optimizasyon teknikleri
+- Partial RoPE implementasyonları
 
-## 🤝 Contributing
+## 🔧 Yeni Özellikler
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+### Architecture Dizini
 
-## 📄 License
+Bu dizin transformer mimarisi ile ilgili gelişmiş örnekler içerir:
 
-This project is open source and available under the MIT License.
+- **`partial-rope.py`**: Partial RoPE vs Full RoPE performans karşılaştırması
+- Detaylı benchmark sonuçları ve görselleştirmeler
+- Bellek kullanımı analizleri
+- Ablasyon çalışmaları
 
-## 🔍 Notes
+## 🤝 Katkıda Bulunma
 
-- Some examples require specific model access permissions
-- GPU is recommended for running larger models
-- Check individual directory README files for specific requirements
-- Make sure to set up proper authentication for Hugging Face models
+Katkılar memnuniyetle karşılanır! Lütfen Pull Request göndermekten çekinmeyin. Büyük değişiklikler için, önce ne değiştirmek istediğinizi tartışmak üzere bir issue açın.
 
-## 🐛 Troubleshooting
+Detaylı bilgi için `CONTRIBUTING.md` dosyasını kontrol edin.
 
-### Common Issues
-1. **Import errors**: Make sure all dependencies are installed
-2. **CUDA errors**: Check GPU availability and CUDA installation
-3. **Model access**: Ensure you have proper permissions for private models
-4. **Memory errors**: Consider using smaller batch sizes or model variants
+## 📄 Lisans
 
-For more detailed help, please check the specific directory documentation or open an issue.
+Bu proje açık kaynaklıdır ve MIT Lisansı altında mevcuttur.
+
+## 🔍 Notlar
+
+- Bazı örnekler özel model erişim izinleri gerektirir
+- Büyük modelleri çalıştırmak için GPU önerilir
+- Belirli gereksinimler için bireysel dizin README dosyalarını kontrol edin
+- Hugging Face modelleri için uygun kimlik doğrulaması ayarladığınızdan emin olun
+- `.env` dosyasını oluşturmayı ve API token'larınızı eklemeyi unutmayın
+
+## 🐛 Sorun Giderme
+
+### Yaygın Sorunlar
+
+1. **Import hataları**: Tüm bağımlılıkların yüklü olduğundan emin olun
+2. **CUDA hataları**: GPU kullanılabilirliğini ve CUDA kurulumunu kontrol edin
+3. **Model erişimi**: Özel modeller için uygun izinlere sahip olduğunuzdan emin olun
+4. **Bellek hataları**: Daha küçük batch boyutları veya model varyantları kullanmayı düşünün
+5. **Token hataları**: `.env` dosyasında Hugging Face token'ınızın doğru ayarlandığından emin olun
+
+Daha detaylı yardım için, lütfen belirli dizin belgelerini kontrol edin veya bir issue açın.
+
+## 📊 Benchmark Sonuçları
+
+Repository, çeşitli transformer varyantları için performans karşılaştırmaları içerir:
+
+- RoPE implementasyonları arasındaki hız ve doğruluk karşılaştırmaları
+- MMLU benchmark sonuçları (archive/ dizininde)
+- Model optimizasyon teknikleri analizi
+
+Detaylı sonuçlar için `Architecture/` dizinini ve generate edilen PNG dosyalarını kontrol edin. 
