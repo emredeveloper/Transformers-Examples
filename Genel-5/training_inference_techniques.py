@@ -12,7 +12,7 @@ class CosineScheduler:
     """
     Cosine Learning Rate Scheduling - Modern optimization
     - Warmup + Cosine decay
-    - Llama ve GPT-4'te kullanılır
+    - Used in models such as Llama and GPT-4
     """
     def __init__(self, optimizer, warmup_steps: int, max_steps: int, 
                  min_lr: float = 0.0, max_lr: float = 1e-4):
@@ -43,13 +43,13 @@ class GradientClipper:
     """
     Gradient Clipping - Training stability
     - Global norm clipping
-    - Exploding gradient problemini çözer
+    - Mitigates exploding gradient issues
     """
     def __init__(self, max_norm: float = 1.0):
         self.max_norm = max_norm
     
     def clip_gradients(self, model: nn.Module) -> float:
-        # Global gradient norm hesapla
+        # Compute the global gradient norm
         total_norm = 0.0
         for p in model.parameters():
             if p.grad is not None:
