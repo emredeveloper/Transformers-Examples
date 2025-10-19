@@ -214,7 +214,7 @@ Detaylı bilgi için `CONTRIBUTING.md` dosyasını kontrol edin.
 
 ## 📄 Lisans
 
-Bu proje açık kaynaklıdır ve MIT Lisansı altında mevcuttur.
+Bu proje açık kaynaklıdır ve [MIT Lisansı](LICENSE) altında mevcuttur. Depoda yer alan bazı üçüncü parti örnekler kendi lisans metinlerini (örn. Apache 2.0) içerebilir ve ilgili dizinlerde belirtilen şartlarla dağıtılır.
 
 ## 🔍 Notlar
 
