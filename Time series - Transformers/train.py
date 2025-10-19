@@ -40,7 +40,7 @@ class TimeSeriesTransformer(nn.Module):
         return self.output_linear(output[:, -1, :])
 
 def train():
-    # Argümanlar
+    # Arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', type=str, default='daily-total-female-births.csv')
     parser.add_argument('--seq_length', type=int, default=24)
@@ -50,23 +50,23 @@ def train():
     parser.add_argument('--model_path', type=str, default='model.pth')
     args = parser.parse_args()
 
-    # Cihaz
+    # Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    # Veriyi yükle ve işle
+    # Load and prepare the data
     df = pd.read_csv(args.data)
     if 'Date' in df.columns:
         df = df.set_index('Date')
     
-    # Normalizasyon
+    # Normalisation
     scaler = MinMaxScaler()
     data = scaler.fit_transform(df.values)
     
-    # Sequence oluştur
+    # Build sliding-window sequences
     X, y = [], []
     for i in range(len(data) - args.seq_length):
         X.append(data[i:i + args.seq_length])
-        y.append(data[i + args.seq_length, 0])  # İlk sütunu tahmin et
+        y.append(data[i + args.seq_length, 0])  # Predict the first column
     
     X = torch.FloatTensor(np.array(X))
     y = torch.FloatTensor(np.array(y)).unsqueeze(-1)
@@ -86,13 +86,13 @@ def train():
         num_layers=2
     ).to(device)
     
-    # Eğitim
+    # Training setup
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     
     best_val_loss = float('inf')
     for epoch in range(args.epochs):
-        # Train
+        # Training loop
         model.train()
         for X_batch, y_batch in train_loader:
             X_batch, y_batch = X_batch.to(device), y_batch.to(device)
@@ -102,7 +102,7 @@ def train():
             loss.backward()
             optimizer.step()
         
-        # Validation
+        # Validation loop
         model.eval()
         val_loss = 0
         with torch.no_grad():
@@ -124,7 +124,7 @@ def train():
                 'input_dim': X.shape[2]
             }, args.model_path)
     
-    print(f'Model kaydedildi: {args.model_path}')
+    print(f'Model saved to: {args.model_path}')
 
 if __name__ == '__main__':
     train()
