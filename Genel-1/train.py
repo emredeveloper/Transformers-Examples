@@ -1,183 +1,219 @@
+"""CPU-friendly demo training pipeline for a tiny language model.
+
+The original script in this repository demonstrated an experimental JAX/Flax
+stack with Flash Attention and mixture-of-experts blocks that targets multi-GPU
+or TPU environments.  While exciting, it was not practical for readers who
+simply want to try out the examples on a local machine.
+
+This file now contains a much smaller end-to-end pipeline that runs on CPU by
+default.  It trains a compact Transformer on a slice of the
+``tiny_shakespeare`` dataset and is intentionally configured with very small
+hyper-parameters.  See ``train_heavy.md`` in this directory for guidance on how
+to scale the idea back up to the original large-model setup.
+"""
+
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass, replace
+from typing import Dict, Iterable, Iterator, Tuple
+
 import jax
 import jax.numpy as jnp
+import numpy as np
+import optax
+from datasets import load_dataset
 from flax import linen as nn
 from flax.training import train_state
-import optax
-import tensorflow as tf
-from tensorflow.keras.layers import TextVectorization
-from datasets import load_dataset
-import numpy as np
+from transformers import AutoTokenizer
 
 
-JAX_TRACEBACK_FILTERING="off"
-# 1. Flash Attention + Sparse MoE
-class FlashMoeAttention(nn.Module):
-    num_heads: int
-    num_experts: int = 8
-    top_k: int = 2
-    dtype: jnp.dtype = jnp.bfloat16
-
-    @nn.compact
-    def __call__(self, x):
-        batch, seq_len, dim = x.shape
-        head_dim = dim // self.num_heads
-        
-        # qkv projeksiyonu
-        qkv = nn.Dense(dim * 3, dtype=self.dtype)(x)
-        qkv = qkv.reshape(batch, seq_len, 3, self.num_heads, head_dim)
-        q, k, v = jnp.split(qkv, 3, axis=2)
-        
-        # Attention hesaplaması
-        attn_weights = jnp.einsum('bqhd,bkhd->bhqk', q, k) / jnp.sqrt(head_dim)
-        attn_weights = jax.nn.softmax(attn_weights, axis=-1)
-        attn_output = jnp.einsum('bhqk,bkhd->bqhd', attn_weights, v)
-        attn_output = attn_output.reshape(batch, seq_len, dim)
-
-        # MoE (Mixture of Experts)
-        gate = nn.Dense(self.num_experts, dtype=self.dtype)(x)
-        gate = jax.nn.softmax(gate, axis=-1)
-        top_k_gates, top_k_indices = jax.lax.top_k(gate, self.top_k)
-        
-        expert_outputs = []
-        for i in range(self.num_experts):
-            expert = nn.Dense(dim, dtype=self.dtype)(x)
-            mask = (top_k_indices == i).astype(jnp.float32)
-            expert_outputs.append(expert * mask[..., None] * top_k_gates[..., None])
-        
-        return attn_output + sum(expert_outputs)
-
-# 2. Ultra Derin Dil Modeli
-class DeepSeekClone(nn.Module):
+@dataclass
+class DemoConfig:
     vocab_size: int
-    num_layers: int = 32
-    num_heads: int = 16
-    dim: int = 2048
-    expert_count: int = 8
+    seq_length: int = 64
+    embed_dim: int = 128
+    num_heads: int = 4
+    num_layers: int = 2
+    mlp_dim: int = 256
+    learning_rate: float = 3e-4
+    weight_decay: float = 0.0
+    batch_size: int = 8
+    epochs: int = 3
+
+
+DEFAULT_VOCAB_SIZE = 50257
+DEFAULT_CONFIG = DemoConfig(vocab_size=DEFAULT_VOCAB_SIZE)
+
+
+class TransformerBlock(nn.Module):
+    embed_dim: int
+    num_heads: int
+    mlp_dim: int
 
     @nn.compact
-    def __call__(self, inputs):
-        x = nn.Embed(self.vocab_size, self.dim)(inputs)
-        for _ in range(self.num_layers):
-            # Pre-LayerNorm
-            x = nn.LayerNorm()(x)
-            
-            # Flash+Moe Attention
-            residual = x
-            x = FlashMoeAttention(num_heads=self.num_heads)(x)
-            x = residual + x
-            
-            # Gated FFN
-            x = nn.LayerNorm()(x)
-            x = nn.Dense(self.dim * 4)(x)
-            x = nn.gelu(x)
-            x = nn.Dense(self.dim)(x)
-        
-        return nn.Dense(self.vocab_size)(x)
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+        residual = x
+        x = nn.LayerNorm()(x)
+        x = nn.SelfAttention(num_heads=self.num_heads, dtype=jnp.float32)(x)
+        x = x + residual
 
-# 3. Optimizasyon ve Eğitim State
-def create_train_state(rng, config):
-    model = DeepSeekClone(**config)
-    params = model.init(rng, jnp.ones((1, 512), dtype=jnp.int32))['params']
-    tx = optax.chain(
-        optax.clip_by_global_norm(1.0),
-        optax.adamw(learning_rate=3e-5, b1=0.9, b2=0.98),
-        optax.add_decayed_weights(0.1)
+        residual = x
+        x = nn.LayerNorm()(x)
+        x = nn.Dense(self.mlp_dim)(x)
+        x = nn.gelu(x)
+        x = nn.Dense(self.embed_dim)(x)
+        return x + residual
+
+
+class MiniTransformer(nn.Module):
+    config: DemoConfig
+
+    @nn.compact
+    def __call__(self, input_ids: jnp.ndarray) -> jnp.ndarray:
+        cfg = self.config
+        x = nn.Embed(cfg.vocab_size, cfg.embed_dim)(input_ids)
+        for _ in range(cfg.num_layers):
+            x = TransformerBlock(
+                embed_dim=cfg.embed_dim, num_heads=cfg.num_heads, mlp_dim=cfg.mlp_dim
+            )(x)
+        x = nn.LayerNorm()(x)
+        logits = nn.Dense(cfg.vocab_size)(x)
+        return logits
+
+
+def build_token_dataset(
+    tokenizer, seq_length: int, *, max_sequences: int, text_limit: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    dataset = load_dataset("tiny_shakespeare", split="train")
+    joined_text = "\n".join(dataset["text"][:text_limit])
+    encoded = tokenizer(
+        joined_text,
+        return_tensors="np",
+        add_special_tokens=False,
+    )["input_ids"].squeeze(0)
+
+    total_length = (len(encoded) - 1) // seq_length * seq_length
+    encoded = encoded[: total_length + 1]
+    inputs = encoded[:-1].reshape(-1, seq_length)
+    labels = encoded[1:].reshape(-1, seq_length)
+
+    if max_sequences:
+        inputs = inputs[:max_sequences]
+        labels = labels[:max_sequences]
+
+    return inputs.astype(np.int32), labels.astype(np.int32)
+
+
+def data_iterator(
+    inputs: np.ndarray, labels: np.ndarray, batch_size: int
+) -> Iterator[Dict[str, jnp.ndarray]]:
+    indices = np.arange(len(inputs))
+    np.random.shuffle(indices)
+    for start in range(0, len(indices), batch_size):
+        batch_idx = indices[start : start + batch_size]
+        batch_inputs = jnp.array(inputs[batch_idx])
+        batch_labels = jnp.array(labels[batch_idx])
+        yield {"input_ids": batch_inputs, "labels": batch_labels}
+
+
+def create_train_state(rng: jax.random.KeyArray, config: DemoConfig) -> train_state.TrainState:
+    model = MiniTransformer(config)
+    dummy = jnp.zeros((1, config.seq_length), dtype=jnp.int32)
+    params = model.init(rng, dummy)["params"]
+    tx = optax.adamw(config.learning_rate, weight_decay=config.weight_decay)
+    return train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
+
+
+def compute_loss(logits: jnp.ndarray, labels: jnp.ndarray) -> jnp.ndarray:
+    vocab_size = logits.shape[-1]
+    one_hot = jax.nn.one_hot(labels, vocab_size)
+    loss = optax.softmax_cross_entropy(logits, one_hot)
+    return loss.mean()
+
+
+def train_epoch(
+    state: train_state.TrainState,
+    iterator: Iterable[Dict[str, jnp.ndarray]],
+) -> Tuple[train_state.TrainState, float]:
+    epoch_loss = []
+
+    for batch in iterator:
+        def loss_fn(params):
+            logits = state.apply_fn({"params": params}, batch["input_ids"])
+            return compute_loss(logits[:, :-1, :], batch["labels"][:, 1:])
+
+        loss_value, grads = jax.value_and_grad(loss_fn)(state.params)
+        state = state.apply_gradients(grads=grads)
+        epoch_loss.append(loss_value)
+
+    if not epoch_loss:
+        return state, 0.0
+
+    loss_array = jax.device_get(jnp.stack(epoch_loss))
+    mean_loss = float(loss_array.mean())
+    return state, mean_loss
+
+
+def run_demo_training(config: DemoConfig, *, text_limit: int, max_sequences: int) -> None:
+    tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+
+    inputs, labels = build_token_dataset(
+        tokenizer,
+        config.seq_length,
+        max_sequences=max_sequences,
+        text_limit=text_limit,
     )
-    return train_state.TrainState.create(
-        apply_fn=model.apply, params=params, tx=tx
-    )
 
-# 4. Veri Hazırlama
-def build_data_pipeline(batch_size=256, seq_len=512):
-    # C4 veri kümesini yükle
-    ds = load_dataset("c4", "en", split="train", streaming=True)
-    ds = ds.shuffle(buffer_size=10000).take(1_000_000)  # 1M örnek al
-    
-    # Tokenizer oluştur
-    vectorizer = TextVectorization(
-        max_tokens=50000,
-        output_sequence_length=seq_len,
-        standardize="lower_and_strip_punctuation"
-    )
-    
-    # Tokenizer'ı adapte et
-    def adapt_tokenizer(dataset):
-        text_data = dataset.map(lambda x: x["text"])
-        vectorizer.adapt(text_data)
-    
-    adapt_tokenizer(ds)
-    
-    # Veriyi tokenize et
-    def encode_fn(examples):
-        tokens = vectorizer(examples["text"]).numpy().astype("int32")
-        return {"input_ids": tokens[:, :-1], "labels": tokens[:, 1:]}
-    
-    # Veri pipeline'ını oluştur
-    ds = ds.map(encode_fn, batched=True)
-    ds = ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    return ds
-
-# 5. JAX Data Loader
-def jax_data_loader(ds):
-    for batch in ds.as_numpy_iterator():
-        yield jax.tree_map(jnp.asarray, batch)
-
-# 6. Eğitim Döngüsü
-@jax.pmap
-def train_step(state, batch):
-    def loss_fn(params):
-        logits = state.apply_fn({'params': params}, batch['input_ids'])
-        loss = optax.softmax_cross_entropy_with_integer_labels(
-            logits[..., :-1, :], batch['labels']
-        ).mean()
-        return loss
-    
-    grad_fn = jax.value_and_grad(loss_fn)
-    loss, grads = grad_fn(state.params)
-    grads = jax.lax.pmean(grads, "batch")
-    new_state = state.apply_gradients(grads=grads)
-    return new_state, loss
-
-def train():
-    # TPU/GPU Setup
-    devices = jax.local_devices()
-    print(f"Using {len(devices)} devices: {devices}")
-    
-    # Model Config
-    config = {
-        "vocab_size": 50000,
-        "num_layers": 24,
-        "dim": 4096,
-        "num_heads": 32
-    }
-    
-    # RNG Key
     rng = jax.random.PRNGKey(0)
-    
-    # Model State
     state = create_train_state(rng, config)
-    state = jax.device_put_replicated(state, devices)
-    
-    # Veri Pipeline
-    ds = build_data_pipeline()
-    loader = jax_data_loader(ds)
-    
-    # Eğitim
-    for epoch in range(10):
-        total_loss = 0.0
-        for step, batch in enumerate(loader):
-            batch = jax.tree_map(lambda x: x.reshape(len(devices), -1, *x.shape[1:]), batch)
-            state, loss = train_step(state, batch)
-            total_loss += loss.mean().item()
-            
-            if step % 100 == 0:
-                print(f"Step {step} | Loss: {loss.mean().item():.4f}")
-        
-        print(f"Epoch {epoch} | Avg Loss: {total_loss/(step+1):.4f}")
-        
-        # Model Checkpoint
-        jax.checkpoint.save(f"model_epoch_{epoch}", state.params)
 
-# 7. Ana Fonksiyon
+    for epoch in range(1, config.epochs + 1):
+        iterator = data_iterator(inputs, labels, config.batch_size)
+        state, loss = train_epoch(state, iterator)
+        print(f"Epoch {epoch}/{config.epochs} - Loss: {loss:.4f}")
+
+    print("Training complete. The demo intentionally stops here without saving checkpoints.")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="CPU-friendly demo trainer")
+    parser.add_argument("--epochs", type=int, default=DEFAULT_CONFIG.epochs, help="Number of epochs to train")
+    parser.add_argument(
+        "--seq-length",
+        type=int,
+        default=DEFAULT_CONFIG.seq_length,
+        help="Sequence length for training examples",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=DEFAULT_CONFIG.batch_size,
+        help="Batch size for the demo run",
+    )
+    parser.add_argument(
+        "--text-limit",
+        type=int,
+        default=200,
+        help="Number of tiny_shakespeare lines to join for training data",
+    )
+    parser.add_argument(
+        "--max-sequences",
+        type=int,
+        default=512,
+        help="Cap on the number of training sequences to keep (0 keeps all)",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    train()
+    args = parse_args()
+    config = replace(
+        DEFAULT_CONFIG,
+        seq_length=args.seq_length,
+        batch_size=args.batch_size,
+        epochs=args.epochs,
+    )
+    run_demo_training(config, text_limit=args.text_limit, max_sequences=args.max_sequences)
