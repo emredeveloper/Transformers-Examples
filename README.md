@@ -227,3 +227,21 @@ Repository, çeşitli transformer varyantları için performans karşılaştırm
 - Model optimizasyon teknikleri analizi
 
 Detaylı sonuçlar için `Architecture/` dizinini ve generate edilen PNG dosyalarını kontrol edin. 
+
+## ✅ Test ve Kod Kalitesi
+
+Hafif testleri ve kod kalite kontrollerini çalıştırmak için isteğe bağlı geliştirme bağımlılıklarını yükleyin:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+Ardından aşağıdaki komutları çalıştırabilirsiniz:
+
+```bash
+pytest
+ruff check tests
+black --check tests
+```
+
+Sürekli entegrasyon iş akışı bu kontrolleri otomatik olarak yürütür.

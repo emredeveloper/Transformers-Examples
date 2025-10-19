@@ -1,0 +1,4 @@
+# Optional development dependencies
+pytest>=7.4.0
+black>=23.9.0
+ruff>=0.1.9
