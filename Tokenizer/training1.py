@@ -5,13 +5,13 @@ import re
 from typing import List
 
 
-# Örnek Türkçe metinler
+# Sample texts
 texts = [
-    "Merhaba, nasılsın?",
-    "Bugün hava çok güzel.",
-    "Python programlama dili çok popüler.",
-    "Derin öğrenme, yapay zekanın bir dalıdır.",
-    "Python, metin işlemede önemli bir adımdır."
+    "Hello, how are you?",
+    "The weather is great today.",
+    "The Python programming language is very popular.",
+    "Deep learning is a branch of artificial intelligence.",
+    "Python is an important tool for text processing."
 ]
 
 
@@ -20,18 +20,18 @@ class TurkishTokenizer:
     def __init__(self):
         self.vocab = {}  # Token -> ID
         self.id_to_token = {}  # ID -> Token
-        self.next_id = 0  # Yeni token ID'si
-        self.unk_token = "<UNK>"  # Bilinmeyen token
-        self.pad_token = "<PAD>"  # Dolgu tokenı
+        self.next_id = 0  # Next token ID
+        self.unk_token = "<UNK>"  # Unknown token placeholder
+        self.pad_token = "<PAD>"  # Padding token
         self.special_tokens = [self.unk_token, self.pad_token]
 
-        # Özel tokenları ekle
+        # Add special tokens to the vocabulary
         for token in self.special_tokens:
             self.add_token(token)
 
     def add_token(self, token: str) -> int:
         """
-        Yeni bir token ekler ve bir ID atar.
+        Add a new token to the vocabulary and assign an ID.
         """
         if token not in self.vocab:
             self.vocab[token] = self.next_id
@@ -41,22 +41,22 @@ class TurkishTokenizer:
 
     def tokenize(self, text: str) -> List[int]:
         """
-        Metni tokenlara ayırır ve token ID'lerini döndürür.
+        Split text into tokens and return their IDs.
         """
-        # Metni küçük harfe çevir ve noktalama işaretlerini ayır
+        # Lowercase text and isolate punctuation
         text = text.lower()
-        tokens = re.findall(r"\w+|\S", text)  # Kelimeler ve noktalama işaretleri
+        tokens = re.findall(r"\w+|\S", text)  # Words and punctuation marks
         token_ids = []
         for token in tokens:
             if token in self.vocab:
                 token_ids.append(self.vocab[token])
             else:
-                token_ids.append(self.vocab[self.unk_token])  # Bilinmeyen token
+                token_ids.append(self.vocab[self.unk_token])  # Unknown token fallback
         return token_ids
 
     def detokenize(self, token_ids: List[int]) -> str:
         """
-        Token ID'lerini metne dönüştürür.
+        Convert token IDs back to text.
         """
         tokens = []
         for token_id in token_ids:
@@ -68,7 +68,7 @@ class TurkishTokenizer:
 
     def build_vocab(self, texts: List[str]):
         """
-        Metinler üzerinden kelime dağarcığı oluşturur.
+        Build a vocabulary from the provided texts.
         """
         counter = Counter()
         for text in texts:
@@ -76,7 +76,7 @@ class TurkishTokenizer:
             tokens = re.findall(r"\w+|\S", text)
             counter.update(tokens)
 
-        # En sık kullanılan tokenları ekle
+        # Add the most frequent tokens
         for token, _ in counter.most_common():
             self.add_token(token)
             
@@ -94,23 +94,23 @@ class TextDataset(Dataset):
         token_ids = self.tokenizer.tokenize(text)
         return torch.tensor(token_ids, dtype=torch.long)
 
-# Tokenizer'ı ve veri setini oluştur
+# Build the tokenizer and dataset
 tokenizer = TurkishTokenizer()
-tokenizer.build_vocab(texts)  # Kelime dağarcığını oluştur
+tokenizer.build_vocab(texts)  # Populate the vocabulary
 
 dataset = TextDataset(texts, tokenizer)
 dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
-# Tokenizer'ı test et
-test_text = "Bugün hava çok güzel."
+# Test the tokenizer
+test_text = "The weather is great today."
 token_ids = tokenizer.tokenize(test_text)
-print(f"Token ID'leri: {token_ids}")
+print(f"Token IDs: {token_ids}")
 
-# Token ID'lerini metne dönüştür
+# Convert token IDs back to text
 decoded_text = tokenizer.detokenize(token_ids)
-print(f"Çözülen metin: {decoded_text}")
+print(f"Decoded text: {decoded_text}")
 
 print(dataset)
-# DataLoader üzerinden örnekler al
+# Iterate through DataLoader samples
 for batch in dataloader:
     print("Batch:", batch)

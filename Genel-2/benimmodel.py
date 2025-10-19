@@ -2,33 +2,33 @@ import os
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from huggingface_hub import login
 
-# Hugging Face giriş işlemi - Environment variable kullan
+# Handle the Hugging Face login using an environment variable
 hf_token = os.getenv('HUGGINGFACE_TOKEN')
 if hf_token:
     login(token=hf_token)
-    print("Başarıyla giriş yapıldı!")
+    print("Successfully authenticated with Hugging Face!")
 else:
-    print("Uyarı: HUGGINGFACE_TOKEN environment variable bulunamadı. Bazı özel modellere erişiminiz olmayabilir.")
+    print("Warning: The HUGGINGFACE_TOKEN environment variable is missing. Access to private models may be limited.")
 
-# Tokenizer ve modelin yüklenmesi
+# Load the tokenizer and model
 tokenizer = AutoTokenizer.from_pretrained("emredeveloper/DeepSeek-R1-Medical-COT")
 model = AutoModelForCausalLM.from_pretrained("emredeveloper/DeepSeek-R1-Medical-COT")
 
-# Modeli kullanarak bir metin oluşturma
+# Generate a response with the model
 def generate_response(input_text):
-    # Input metnini token'lara dönüştürme
+    # Convert input text into tokens
     inputs = tokenizer(input_text, return_tensors="pt")
-    
-    # Modelden çıkışı almak için generate metodunu kullanma
+
+    # Use the generate method to produce output
     outputs = model.generate(**inputs)
-    
-    # Çıktıyı decode ederek cevap verme
+
+    # Decode the output tokens into text
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
     return response
 
-# Kullanıcıdan input almak
-input_text = "baş ağrısı nedir?"
+# Provide an input example
+input_text = "What is a headache?"
 
-# Modeli çalıştırma ve sonucu yazdırma
+# Run the model and print the result
 response = generate_response(input_text)
-print(f"Model Cevabı: {response}")
+print(f"Model Response: {response}")

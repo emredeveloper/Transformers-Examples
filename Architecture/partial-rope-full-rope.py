@@ -8,7 +8,7 @@ from transformers import AutoTokenizer
 import matplotlib.pyplot as plt
 
 class PartialRoPE(nn.Module):
-    """Partial RoPE implementasyonu - sadece belirli bir oranı döndürür"""
+    """Partial RoPE implementation that rotates only a fraction of dimensions."""
     def __init__(self, dim, max_position_embeddings=2048, base=10000, partial_rotary_factor=0.5):
         super().__init__()
         self.dim = dim
@@ -16,7 +16,7 @@ class PartialRoPE(nn.Module):
         self.base = base
         self.partial_rotary_factor = partial_rotary_factor
         
-        # Sadece partial faktörü kadar dimension kullan
+        # Use only the fraction defined by the partial factor
         self.rotary_dim = int(self.dim * self.partial_rotary_factor)
         
         inv_freq = 1.0 / (self.base ** (torch.arange(0, self.rotary_dim, 2).float() / self.rotary_dim))
@@ -43,7 +43,7 @@ class PartialRoPE(nn.Module):
         if seq_len > self.max_seq_len_cached:
             self._set_cos_sin_cache(seq_len)
         
-        # Sadece rotary_dim kadar uygula
+        # Apply RoPE only to the rotary portion
         q_rot = q[..., :self.rotary_dim]
         q_pass = q[..., self.rotary_dim:]
         k_rot = k[..., :self.rotary_dim]
@@ -52,11 +52,11 @@ class PartialRoPE(nn.Module):
         cos = self.cos_cached[:seq_len, :].unsqueeze(0).unsqueeze(0)
         sin = self.sin_cached[:seq_len, :].unsqueeze(0).unsqueeze(0)
         
-        # RoPE sadece rotary kısmına uygula
+        # Embed only the rotary portion with RoPE
         q_rot_embed = (q_rot * cos) + (self._rotate_half(q_rot) * sin)
         k_rot_embed = (k_rot * cos) + (self._rotate_half(k_rot) * sin)
         
-        # Rotary ve pass kısımlarını birleştir
+        # Concatenate rotary and passthrough sections
         q_embed = torch.cat([q_rot_embed, q_pass], dim=-1)
         k_embed = torch.cat([k_rot_embed, k_pass], dim=-1)
         
@@ -64,7 +64,7 @@ class PartialRoPE(nn.Module):
 
 
 class FullRoPE(nn.Module):
-    """Tam RoPE implementasyonu"""
+    """Full RoPE implementation."""
     def __init__(self, dim, max_position_embeddings=2048, base=10000):
         super().__init__()
         self.dim = dim
@@ -105,7 +105,7 @@ class FullRoPE(nn.Module):
 
 
 class AttentionWithRoPE(nn.Module):
-    """RoPE kullanan Attention katmanı"""
+    """Attention layer that uses RoPE."""
     def __init__(self, dim, num_heads, rope_module):
         super().__init__()
         self.dim = dim
@@ -123,15 +123,15 @@ class AttentionWithRoPE(nn.Module):
     def forward(self, x, mask=None):
         batch_size, seq_len, _ = x.shape
         
-        # Q, K, V projeksiyonları
+        # Q, K, V projections
         q = self.q_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
         k = self.k_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
         v = self.v_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
         
-        # RoPE uygula
+        # Apply RoPE
         q, k = self.rope(q, k)
         
-        # Attention hesapla
+        # Compute attention
         attn_scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
         
         if mask is not None:
@@ -140,7 +140,7 @@ class AttentionWithRoPE(nn.Module):
         attn_probs = F.softmax(attn_scores, dim=-1)
         attn_output = torch.matmul(attn_probs, v)
         
-        # Çıktıyı birleştir
+        # Merge the heads back together
         attn_output = attn_output.transpose(1, 2).contiguous().view(batch_size, seq_len, self.dim)
         output = self.out_proj(attn_output)
         
@@ -148,7 +148,7 @@ class AttentionWithRoPE(nn.Module):
 
 
 class SimpleTransformerBlock(nn.Module):
-    """Basit Transformer bloğu"""
+    """Simple Transformer block."""
     def __init__(self, dim, num_heads, rope_module, mlp_ratio=4):
         super().__init__()
         self.attention = AttentionWithRoPE(dim, num_heads, rope_module)
@@ -170,7 +170,7 @@ class SimpleTransformerBlock(nn.Module):
 
 
 class LanguageModel(nn.Module):
-    """Basit dil modeli"""
+    """Simple language model."""
     def __init__(self, vocab_size, dim, num_heads, num_layers, rope_module):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, dim)
@@ -194,17 +194,17 @@ class LanguageModel(nn.Module):
 
 
 def create_causal_mask(seq_len, device):
-    """Causal mask oluştur"""
+    """Create a causal mask."""
     mask = torch.triu(torch.ones(seq_len, seq_len, device=device), diagonal=1)
     return mask == 0
 
 
 def train_step(model, data, labels, optimizer, device):
-    """Tek eğitim adımı"""
+    """Single training step."""
     model.train()
     data, labels = data.to(device), labels.to(device)
     
-    # Causal mask oluştur
+    # Build the causal mask
     seq_len = data.shape[1]
     mask = create_causal_mask(seq_len, device)
     
@@ -221,7 +221,7 @@ def train_step(model, data, labels, optimizer, device):
 
 
 def evaluate_perplexity(model, data, labels, device):
-    """Perplexity hesapla"""
+    """Compute perplexity."""
     model.eval()
     data, labels = data.to(device), labels.to(device)
     
@@ -236,27 +236,27 @@ def evaluate_perplexity(model, data, labels, device):
 
 
 def benchmark_rope_performance():
-    """Partial ve Full RoPE performans karşılaştırması"""
-    
-    # Türkçe örnek metinler
+    """Compare the performance of partial and full RoPE."""
+
+    # Sample Turkish texts used for training data
     turkish_texts = [
-        "Merhaba dünya! Bugün hava çok güzel.",
-        "İstanbul'un tarihi ve kültürel zenginlikleri dünyaca ünlüdür.",
-        "Türk mutfağı, zengin lezzetleri ve çeşitliliği ile tanınır.",
-        "Yapay zeka teknolojileri hızla gelişmektedir.",
-        "Kitap okumak, hayal gücünü geliştiren harika bir aktivitedir.",
-        "Spor yapmak sağlıklı bir yaşam için önemlidir.",
-        "Müzik, evrensel bir dil olarak kabul edilir.",
-        "Doğa, insanlara huzur ve ilham verir.",
-        "Eğitim, toplumların gelişimi için temel taştır.",
-        "Teknoloji hayatımızı kolaylaştırır ama dengeli kullanılmalıdır."
+        "Hello world! The weather is wonderful today.",
+        "Istanbul's historic and cultural richness is famous worldwide.",
+        "Turkish cuisine is known for its rich flavours and variety.",
+        "Artificial intelligence technologies are rapidly advancing.",
+        "Reading books is a fantastic activity that boosts imagination.",
+        "Exercising is important for a healthy life.",
+        "Music is considered a universal language.",
+        "Nature gives people peace and inspiration.",
+        "Education is the cornerstone of societal development.",
+        "Technology makes our lives easier but should be used in balance."
     ]
-    
-    # Tokenizer yükle
-    print("Tokenizer yükleniyor...")
+
+    # Load the tokenizer
+    print("Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained("dbmdz/bert-base-turkish-cased")
     
-    # Padding token ayarla
+    # Configure the padding token
     if tokenizer.pad_token is None:
         if tokenizer.eos_token is not None:
             tokenizer.pad_token = tokenizer.eos_token
@@ -265,10 +265,10 @@ def benchmark_rope_performance():
         else:
             tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     
-    # Metinleri tokenize et
-    print("Metinler tokenize ediliyor...")
+    # Tokenise the texts
+    print("Tokenising texts...")
     encoded = tokenizer(
-        turkish_texts * 10,  # Daha fazla veri için tekrarla
+        turkish_texts * 10,  # Repeat to create additional data
         padding=True,
         truncation=True,
         max_length=64,
@@ -278,7 +278,7 @@ def benchmark_rope_performance():
     input_ids = encoded["input_ids"]
     labels = input_ids.clone()
     
-    # Model parametreleri
+    # Model parameters
     vocab_size = tokenizer.vocab_size
     dim = 128
     num_heads = 8
@@ -288,9 +288,9 @@ def benchmark_rope_performance():
     learning_rate = 1e-3
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Cihaz: {device}")
+    print(f"Device: {device}")
     
-    # Veriyi batch'lere böl
+    # Prepare mini-batches
     num_samples = input_ids.shape[0]
     num_batches = num_samples // batch_size
     
@@ -299,8 +299,8 @@ def benchmark_rope_performance():
         "full_rope": {"losses": [], "perplexities": [], "times": []}
     }
     
-    # Partial RoPE modeli
-    print("\n=== Partial RoPE Eğitimi ===")
+    # Partial RoPE model
+    print("\n=== Training Partial RoPE ===")
     partial_rope = PartialRoPE(dim // num_heads, partial_rotary_factor=0.5)
     model_partial = LanguageModel(vocab_size, dim, num_heads, num_layers, partial_rope).to(device)
     optimizer_partial = torch.optim.Adam(model_partial.parameters(), lr=learning_rate)
@@ -329,8 +329,8 @@ def benchmark_rope_performance():
         
         print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}, Perplexity={perplexity:.2f}, Time={epoch_time:.3f}s")
     
-    # Full RoPE modeli
-    print("\n=== Full RoPE Eğitimi ===")
+    # Full RoPE model
+    print("\n=== Training Full RoPE ===")
     full_rope = FullRoPE(dim // num_heads)
     model_full = LanguageModel(vocab_size, dim, num_heads, num_layers, full_rope).to(device)
     optimizer_full = torch.optim.Adam(model_full.parameters(), lr=learning_rate)
@@ -359,54 +359,53 @@ def benchmark_rope_performance():
         
         print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}, Perplexity={perplexity:.2f}, Time={epoch_time:.3f}s")
     
-    # Sonuçları görselleştir
+    # Visualise the results
     visualize_results(results)
     
-    # Özet istatistikler
-    print("\n=== Performans Özeti ===")
+    # Summary statistics
+    print("\n=== Performance Summary ===")
     print(f"Partial RoPE - Final Loss: {results['partial_rope']['losses'][-1]:.4f}")
     print(f"Full RoPE - Final Loss: {results['full_rope']['losses'][-1]:.4f}")
     print(f"Partial RoPE - Final Perplexity: {results['partial_rope']['perplexities'][-1]:.2f}")
     print(f"Full RoPE - Final Perplexity: {results['full_rope']['perplexities'][-1]:.2f}")
     print(f"Partial RoPE - Avg Time/Epoch: {np.mean(results['partial_rope']['times']):.3f}s")
     print(f"Full RoPE - Avg Time/Epoch: {np.mean(results['full_rope']['times']):.3f}s")
-    
-    # Hız kazancı
+
+    # Speed-up percentage
     speed_gain = (np.mean(results['full_rope']['times']) - np.mean(results['partial_rope']['times'])) / np.mean(results['full_rope']['times']) * 100
-    print(f"\nPartial RoPE hız kazancı: %{speed_gain:.1f}")
+    print(f"\nPartial RoPE speed-up: {speed_gain:.1f}%")
 
 
 def visualize_results(results):
-    """Sonuçları görselleştir"""
+    """Visualise benchmarking metrics."""
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
     epochs = range(1, len(results["partial_rope"]["losses"]) + 1)
     
-    # Loss grafiği
-        # Loss grafiği
+    # Loss chart
     axes[0].plot(epochs, results["partial_rope"]["losses"], 'b-', label='Partial RoPE', linewidth=2)
     axes[0].plot(epochs, results["full_rope"]["losses"], 'r-', label='Full RoPE', linewidth=2)
     axes[0].set_xlabel('Epoch')
     axes[0].set_ylabel('Loss')
-    axes[0].set_title('Eğitim Loss Karşılaştırması')
+    axes[0].set_title('Training Loss Comparison')
     axes[0].legend()
     axes[0].grid(True, alpha=0.3)
     
-    # Perplexity grafiği
+    # Perplexity chart
     axes[1].plot(epochs, results["partial_rope"]["perplexities"], 'b-', label='Partial RoPE', linewidth=2)
     axes[1].plot(epochs, results["full_rope"]["perplexities"], 'r-', label='Full RoPE', linewidth=2)
     axes[1].set_xlabel('Epoch')
     axes[1].set_ylabel('Perplexity')
-    axes[1].set_title('Perplexity Karşılaştırması')
+    axes[1].set_title('Perplexity Comparison')
     axes[1].legend()
     axes[1].grid(True, alpha=0.3)
     
-    # Eğitim süresi grafiği
+    # Training time chart
     axes[2].plot(epochs, results["partial_rope"]["times"], 'b-', label='Partial RoPE', linewidth=2)
     axes[2].plot(epochs, results["full_rope"]["times"], 'r-', label='Full RoPE', linewidth=2)
     axes[2].set_xlabel('Epoch')
-    axes[2].set_ylabel('Süre (saniye)')
-    axes[2].set_title('Epoch Başına Eğitim Süresi')
+    axes[2].set_ylabel('Time (seconds)')
+    axes[2].set_title('Training Time per Epoch')
     axes[2].legend()
     axes[2].grid(True, alpha=0.3)
     
@@ -416,54 +415,54 @@ def visualize_results(results):
 
 
 def inference_comparison(model_partial, model_full, tokenizer, device):
-    """Çıkarım performansı karşılaştırması"""
-    print("\n=== Çıkarım Performansı Karşılaştırması ===")
+    """Compare inference behaviour between the models."""
+    print("\n=== Inference Performance Comparison ===")
     
     test_texts = [
-        "Bugün hava",
-        "Türkiye'nin başkenti",
-        "Yapay zeka",
-        "En sevdiğim yemek"
+        "Today the weather",
+        "The capital of Turkey",
+        "Artificial intelligence",
+        "My favourite meal"
     ]
     
     model_partial.eval()
     model_full.eval()
     
     for text in test_texts:
-        print(f"\nGiriş: '{text}'")
+        print(f"\nInput: '{text}'")
         
-        # Tokenize et
+        # Tokenise the prompt
         inputs = tokenizer(text, return_tensors="pt").to(device)
         input_ids = inputs["input_ids"]
         
-        # Partial RoPE ile tahmin
+        # Prediction with Partial RoPE
         with torch.no_grad():
             start_time = time.time()
             mask = create_causal_mask(input_ids.shape[1], device)
             logits_partial = model_partial(input_ids, mask)
             partial_time = time.time() - start_time
             
-            # En olası sonraki kelimeyi bul
+            # Select the most probable next token
             next_token_partial = torch.argmax(logits_partial[0, -1, :])
             next_word_partial = tokenizer.decode(next_token_partial)
         
-        # Full RoPE ile tahmin
+        # Prediction with Full RoPE
         with torch.no_grad():
             start_time = time.time()
             logits_full = model_full(input_ids, mask)
             full_time = time.time() - start_time
             
-            # En olası sonraki kelimeyi bul
+            # Select the most probable next token
             next_token_full = torch.argmax(logits_full[0, -1, :])
             next_word_full = tokenizer.decode(next_token_full)
         
-        print(f"  Partial RoPE tahmini: '{next_word_partial}' (Süre: {partial_time*1000:.2f}ms)")
-        print(f"  Full RoPE tahmini: '{next_word_full}' (Süre: {full_time*1000:.2f}ms)")
+        print(f"  Partial RoPE prediction: '{next_word_partial}' (Time: {partial_time*1000:.2f}ms)")
+        print(f"  Full RoPE prediction: '{next_word_full}' (Time: {full_time*1000:.2f}ms)")
 
 
 def memory_comparison():
-    """Bellek kullanımı karşılaştırması"""
-    print("\n=== Bellek Kullanımı Karşılaştırması ===")
+    """Contrast memory usage between the two approaches."""
+    print("\n=== Memory Usage Comparison ===")
     
     dim = 512
     seq_len = 1024
@@ -471,7 +470,7 @@ def memory_comparison():
     num_heads = 8
     head_dim = dim // num_heads
     
-    # Partial RoPE bellek kullanımı
+    # Memory usage for Partial RoPE
     partial_rope = PartialRoPE(head_dim, max_position_embeddings=seq_len, partial_rotary_factor=0.5)
     q = torch.randn(batch_size, num_heads, seq_len, head_dim)
     k = torch.randn(batch_size, num_heads, seq_len, head_dim)
@@ -485,24 +484,24 @@ def memory_comparison():
         _ = partial_rope(q, k)
         partial_memory = torch.cuda.max_memory_allocated() / 1024**2  # MB
         
-        # Full RoPE bellek kullanımı
+        # Memory usage for Full RoPE
         torch.cuda.reset_peak_memory_stats()
         full_rope = FullRoPE(head_dim, max_position_embeddings=seq_len).cuda()
         
         # Forward pass
         _ = full_rope(q, k)
         full_memory = torch.cuda.max_memory_allocated() / 1024**2  # MB
-        
-        print(f"Partial RoPE bellek kullanımı: {partial_memory:.2f} MB")
-        print(f"Full RoPE bellek kullanımı: {full_memory:.2f} MB")
-        print(f"Bellek tasarrufu: {(full_memory - partial_memory) / full_memory * 100:.1f}%")
+
+        print(f"Partial RoPE memory usage: {partial_memory:.2f} MB")
+        print(f"Full RoPE memory usage: {full_memory:.2f} MB")
+        print(f"Memory savings: {(full_memory - partial_memory) / full_memory * 100:.1f}%")
     else:
-        print("CUDA mevcut değil, bellek karşılaştırması yapılamıyor.")
+        print("CUDA is not available, memory comparison skipped.")
 
 
 def ablation_study():
-    """Farklı partial_rotary_factor değerleri için ablasyon çalışması"""
-    print("\n=== Ablasyon Çalışması: Farklı Partial Rotary Factor Değerleri ===")
+    """Ablation study for varying partial_rotary_factor values."""
+    print("\n=== Ablation Study: Partial Rotary Factor Variants ===")
     
     factors = [0.25, 0.5, 0.75, 1.0]
     dim = 64
@@ -521,7 +520,7 @@ def ablation_study():
         q = torch.randn(batch_size, 1, seq_len, dim)
         k = torch.randn(batch_size, 1, seq_len, dim)
         
-        # Performans ölçümü
+        # Measure execution time
         start_time = time.time()
         for _ in range(num_iterations):
             _ = rope(q, k)
@@ -532,18 +531,18 @@ def ablation_study():
         
         print(f"Factor {factor}: {avg_time:.3f} ms/iteration")
     
-    # Sonuçları görselleştir
+    # Visualise the ablation results
     plt.figure(figsize=(8, 6))
     factors_list = list(results.keys())
     times_list = list(results.values())
     
     plt.bar(factors_list, times_list, color=['blue', 'green', 'orange', 'red'])
     plt.xlabel('Partial Rotary Factor')
-    plt.ylabel('Ortalama Süre (ms)')
-    plt.title('Farklı Partial Rotary Factor Değerleri için Performans')
+    plt.ylabel('Average Time (ms)')
+    plt.title('Performance for Different Partial Rotary Factors')
     plt.grid(True, alpha=0.3)
     
-    # Değerleri bar üzerine yaz
+    # Annotate the bars with values
     for i, (factor, exec_time) in enumerate(zip(factors_list, times_list)):
         plt.text(i, exec_time + 0.01, f'{exec_time:.3f}', ha='center', va='bottom')
     
@@ -552,19 +551,19 @@ def ablation_study():
     plt.show()
 
 
-# Ana fonksiyon
+# Main entry point
 if __name__ == "__main__":
-    print("Partial RoPE vs Full RoPE Performans Karşılaştırması")
+    print("Partial RoPE vs Full RoPE Performance Benchmark")
     print("=" * 60)
-    
-    # Ana benchmark
+
+    # Main benchmark
     benchmark_rope_performance()
-    
-    # Bellek karşılaştırması
+
+    # Memory comparison
     memory_comparison()
-    
-    # Ablasyon çalışması
+
+    # Ablation study
     ablation_study()
-    
-    print("\n✅ Tüm testler tamamlandı!")
-    print("📊 Grafikler 'rope_comparison.png' ve 'ablation_study.png' olarak kaydedildi.")
+
+    print("\n✅ All benchmarks completed!")
+    print("📊 Charts saved as 'rope_comparison.png' and 'ablation_study.png'.")

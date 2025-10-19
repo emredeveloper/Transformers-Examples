@@ -1,52 +1,52 @@
-# Gelişmiş Görüntü İşleme Uygulaması
+# Advanced Image Processing Application
 
-Bu proje, büyük görüntüleri daha küçük parçalara bölen, bu parçalara çeşitli filtreler uygulayan ve sonrasında görüntüyü tekrar birleştiren bir Streamlit uygulamasıdır.
+This project is a Streamlit application that splits large images into smaller patches, applies a variety of filters to those patches, and then stitches the image back together.
 
-## Özellikler
+## Features
 
-- Büyük görüntüleri parçalara ayırma
-- Her parçaya farklı görüntü filtreleri uygulama
-- İşlenen parçaları orijinal boyutlarında birleştirme
-- Kullanıcı dostu arayüz
-- İşlenmiş görüntüyü indirme imkanı
+- Split large images into tiles
+- Apply different image filters to each tile
+- Merge processed tiles back to the original resolution
+- User-friendly interface
+- Option to download the processed image
 
-## Kurulum
+## Installation
 
-1. Gerekli kütüphaneleri yükleyin:
+1. Install the required libraries:
    ```
    pip install streamlit numpy torch Pillow
    ```
 
-2. Uygulamayı çalıştırın:
+2. Run the application:
    ```
    streamlit run image_processor_app.py
    ```
 
-## Kullanım
+## Usage
 
-1. Sol taraftaki menüden bir görüntü yükleyin
-2. İstediğiniz filtreyi seçin
-3. Örtüşme payını ve maksimum parça sayısını ayarlayın
-4. "Görüntüyü İşle" butonuna tıklayın
-5. İşlenmiş görüntüyü inceleyip indirebilirsiniz
+1. Upload an image from the menu on the left
+2. Choose the filter you want to apply
+3. Adjust the overlap ratio and maximum number of patches
+4. Click the "Process Image" button
+5. Review and download the processed image
 
-## Kullanılan Filtreler
+## Available Filters
 
-- Normal: Orijinal görüntü
-- Siyah-Beyaz: Gri tonlamalı görüntü
-- Blur: Bulanıklaştırma efekti
-- Kontur: Kenar belirleme
-- Keskinleştir: Görüntüyü keskinleştirme
+- Normal: Original image
+- Black & White: Grayscale conversion
+- Blur: Blurring effect
+- Contour: Edge detection
+- Sharpen: Enhance image sharpness
 
-## Geliştirme
+## Development
 
-Bu proje, büyük görüntüleri işlemek için parçalama ve birleştirme işlemlerini gösteren bir örnektir. Daha fazla özellik ekleyerek genişletebilirsiniz:
+This project demonstrates the workflow for splitting and recombining large images. You can extend it with additional features, such as:
 
-- Daha fazla filtre seçeneği
-- Parça boyutlarını özelleştirme
-- Toplu işlem yapabilme
-- Farklı kaydetme formatları
+- Additional filter options
+- Customizable patch sizes
+- Batch processing support
+- Alternative export formats
 
-## Lisans
+## License
 
 MIT

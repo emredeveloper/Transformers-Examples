@@ -5,13 +5,13 @@ import math
 from typing import Optional, Tuple
 import numpy as np
 
-# 1. RoPE (Rotary Position Embedding) - Llama'da kullanılan
+# 1. RoPE (Rotary Position Embedding) - Used in Llama
 class RotaryPositionalEmbedding(nn.Module):
     """
-    RoPE, pozisyonel bilgiyi doğrudan attention hesaplamasına entegre eder.
-    Avantajları:
-    - Extrapolation capability (training'den uzun sequence'larda çalışır)
-    - Relative position bilgisi
+    RoPE integrates positional information directly into the attention computation.
+    Advantages:
+    - Extrapolation capability (works on sequences longer than the training context)
+    - Relative positional information
     - Efficiency
     """
     def __init__(self, dim: int, max_seq_len: int = 2048, base: float = 10000.0):
@@ -20,11 +20,11 @@ class RotaryPositionalEmbedding(nn.Module):
         self.max_seq_len = max_seq_len
         self.base = base
         
-        # Frequency hesaplama
+        # Compute frequencies
         inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float() / dim))
         self.register_buffer('inv_freq', inv_freq)
         
-        # Cache için sin/cos değerleri
+        # Cache sin/cos values
         self._set_cos_sin_cache(max_seq_len)
     
     def _set_cos_sin_cache(self, seq_len: int):
@@ -42,9 +42,9 @@ class RotaryPositionalEmbedding(nn.Module):
         return self.cos_cached[:seq_len], self.sin_cached[:seq_len]
 
 def apply_rotary_pos_emb(q, k, cos, sin):
-    """RoPE uygulama fonksiyonu"""
+    """Apply RoPE to queries and keys"""
     def rotate_half(x):
-        # x'in yarısını rotate et
+        # Rotate half of x
         x1, x2 = x[..., :x.shape[-1]//2], x[..., x.shape[-1]//2:]
         return torch.cat((-x2, x1), dim=-1)
     
@@ -52,12 +52,12 @@ def apply_rotary_pos_emb(q, k, cos, sin):
     k_embed = k * cos + rotate_half(k) * sin
     return q_embed, k_embed
 
-# 2. RMSNorm - LayerNorm'dan daha verimli
+# 2. RMSNorm - More efficient than LayerNorm
 class RMSNorm(nn.Module):
     """
     Root Mean Square Normalization
-    - LayerNorm'dan daha hızlı (mean hesaplama yok)
-    - Llama'da kullanılır
+    - Faster than LayerNorm (no mean computation)
+    - Used in Llama
     """
     def __init__(self, dim: int, eps: float = 1e-6):
         super().__init__()
@@ -65,16 +65,16 @@ class RMSNorm(nn.Module):
         self.weight = nn.Parameter(torch.ones(dim))
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # RMS hesaplama
+        # Compute RMS
         norm = x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
         return self.weight * norm
 
-# 3. SwiGLU Activation - Llama'nın kullandığı
+# 3. SwiGLU Activation - Used by Llama
 class SwiGLU(nn.Module):
     """
     Swish-Gated Linear Unit
     - GLU (Gated Linear Unit) + Swish activation
-    - Standard FFN'den daha iyi performance
+    - Better performance than a standard FFN
     """
     def __init__(self, dim: int, hidden_dim: int):
         super().__init__()
@@ -91,9 +91,9 @@ class SwiGLU(nn.Module):
 # 4. Grouped Query Attention (GQA) - Memory efficient
 class GroupedQueryAttention(nn.Module):
     """
-    GQA - Query/Key/Value head'leri farklı sayıda
-    - Multi-Head Attention ve Multi-Query Attention arası compromise
-    - Memory efficiency + quality balance
+    GQA - Different numbers of query/key/value heads
+    - A compromise between Multi-Head Attention and Multi-Query Attention
+    - Balances memory efficiency and quality
     """
     def __init__(self, dim: int, n_heads: int, n_kv_heads: int):
         super().__init__()
@@ -102,13 +102,13 @@ class GroupedQueryAttention(nn.Module):
         self.head_dim = dim // n_heads
         self.group_size = n_heads // n_kv_heads
         
-        # Query için tüm head'ler
+        # Full set of heads for the queries
         self.wq = nn.Linear(dim, n_heads * self.head_dim, bias=False)
-        # Key/Value için daha az head
+        # Fewer heads for keys/values
         self.wk = nn.Linear(dim, n_kv_heads * self.head_dim, bias=False)
         self.wv = nn.Linear(dim, n_kv_heads * self.head_dim, bias=False)
         self.wo = nn.Linear(n_heads * self.head_dim, dim, bias=False)
-        
+
         # RoPE
         self.rope = RotaryPositionalEmbedding(self.head_dim)
     
@@ -124,11 +124,11 @@ class GroupedQueryAttention(nn.Module):
         cos, sin = self.rope(x, seq_len)
         q, k = apply_rotary_pos_emb(q, k, cos, sin)
         
-        # K, V'yi group_size kadar repeat et
+        # Repeat K and V by group_size
         k = k.repeat_interleave(self.group_size, dim=2)
         v = v.repeat_interleave(self.group_size, dim=2)
         
-        # Attention hesaplama
+        # Compute attention
         q = q.transpose(1, 2)  # (bsz, n_heads, seq_len, head_dim)
         k = k.transpose(1, 2)
         v = v.transpose(1, 2)
@@ -141,7 +141,7 @@ class GroupedQueryAttention(nn.Module):
         attn = F.softmax(scores, dim=-1)
         out = torch.matmul(attn, v)
         
-        # Reshape ve output projection
+        # Reshape and project back
         out = out.transpose(1, 2).contiguous().view(bsz, seq_len, -1)
         return self.wo(out)
 
@@ -149,7 +149,7 @@ class GroupedQueryAttention(nn.Module):
 class TransformerBlock(nn.Module):
     """
     Modern transformer block:
-    - Pre-normalization (norm önce gelir)
+    - Pre-normalization (norm comes first)
     - Residual connections
     - SwiGLU FFN
     - GQA attention
@@ -172,7 +172,7 @@ class TransformerBlock(nn.Module):
         
         return x
 
-# 6. Weight Tying ve Advanced Initialization
+# 6. Weight tying and advanced initialization
 def scaled_init_(tensor: torch.Tensor, scale: float = 1.0):
     """Modern weight initialization"""
     std = scale / math.sqrt(tensor.shape[-1])
@@ -207,7 +207,7 @@ class ModernLLM(nn.Module):
         # Output projection (weight tying ile)
         self.output = nn.Linear(dim, vocab_size, bias=False)
         
-        # Weight tying: input ve output embedding'leri paylaş
+        # Weight tying: share input and output embeddings
         self.output.weight = self.tok_embeddings.weight
         
         # Modern initialization
@@ -227,7 +227,7 @@ class ModernLLM(nn.Module):
         # Token embeddings
         x = self.tok_embeddings(tokens)
         
-        # Causal mask oluştur
+        # Create a causal mask
         mask = torch.tril(torch.ones(seq_len, seq_len, device=tokens.device))
         mask = mask.unsqueeze(0).unsqueeze(0)  # (1, 1, seq_len, seq_len)
         
@@ -242,29 +242,29 @@ class ModernLLM(nn.Module):
         logits = self.output(x)
         
         if targets is not None:
-            # Training loss hesaplama
+            # Compute the training loss
             loss = F.cross_entropy(
                 logits.view(-1, self.vocab_size),
                 targets.view(-1),
                 ignore_index=-100
             )
             return logits, loss
-        
+
         return logits
 
 # Usage example
 if __name__ == "__main__":
-    # Model parametreleri (Llama-style)
+    # Model hyperparameters (Llama-style)
     model = ModernLLM(
         vocab_size=32000,
         dim=4096,
         n_layers=32,
         n_heads=32,
-        n_kv_heads=8,  # GQA için daha az KV head
+        n_kv_heads=8,  # Fewer KV heads for GQA
         norm_eps=1e-6
     )
     
-    # Örnek input
+    # Example input
     batch_size, seq_len = 2, 512
     tokens = torch.randint(0, 32000, (batch_size, seq_len))
     
