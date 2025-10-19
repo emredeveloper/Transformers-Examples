@@ -31,22 +31,22 @@ except Exception as e:
     logger.error(f"Failed to login to Hugging Face: {e}")
     raise
 
-# -------------------- Veri Yükleme --------------------
+# -------------------- Data Loading --------------------
 def load_textcaps_data(num_samples: int = 100):
     """Load TextCaps dataset from Hugging Face with streaming."""
     try:
-        # Stream modunda veri setini yükle
+        # Load the dataset in streaming mode
         dataset = load_dataset("HuggingFaceM4/the_cauldron", "textcaps", streaming=True)
-        # İlk num_samples kadar veriyi al
+        # Retrieve the first `num_samples` entries
         train_data = list(islice(dataset["train"], num_samples))
-        
+
         logger.info(f"Loaded {len(train_data)} samples from dataset")
         return train_data
     except Exception as e:
         logger.error(f"Failed to load dataset: {e}")
         raise
 
-# -------------------- Veri Kümesi Sınıfı --------------------
+# -------------------- Dataset Class --------------------
 class TextCapsDataset(Dataset):
     """Dataset class for TextCaps data."""
     
@@ -69,9 +69,9 @@ class TextCapsDataset(Dataset):
             
             # Get text
             conversations = item.get('conversations', [])
-            text = next((conv['content'] for conv in conversations 
+            text = next((conv['content'] for conv in conversations
                         if conv.get('from') == 'assistant'), "")
-            
+
             # Handle image
             images = item.get('images', [])
             if not images:
@@ -96,7 +96,7 @@ class TextCapsDataset(Dataset):
             
             # Transform image
             img_tensor = self.transform(image)
-            
+
             # Validate tensor shape
             if img_tensor.shape != (3, 224, 224):
                 logger.warning(f"Unexpected image tensor shape at index {idx}: {img_tensor.shape}")
@@ -120,7 +120,7 @@ class TextCapsDataset(Dataset):
             logger.error(f"Item structure: {item}")
             raise
 
-# -------------------- Model Mimarisi (Aynı) --------------------
+# -------------------- Model Architecture --------------------
 class EnhancedTextToImageModel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -128,8 +128,8 @@ class EnhancedTextToImageModel(nn.Module):
         self.text_encoder = BertModel.from_pretrained("bert-base-uncased")
         self.cross_attn = nn.MultiheadAttention(embed_dim=768, num_heads=12)
         
-        self.projection = nn.Linear(768, 768)  # remains the same
-        # Updated decoder to output (3, 224, 224)
+        self.projection = nn.Linear(768, 768)
+        # Decoder maps features back to the 3x224x224 image space
         self.decoder = nn.Sequential(
             nn.Linear(768, 256 * 7 * 7),
             nn.ReLU(),
@@ -168,7 +168,7 @@ class EnhancedTextToImageModel(nn.Module):
         # Decode
         return self.decoder(projected)
 
-# -------------------- Eğitim Fonksiyonu --------------------
+# -------------------- Training Function --------------------
 def train_model(
     num_samples: int = 1000,
     batch_size: int = 8,
@@ -179,18 +179,18 @@ def train_model(
     try:
         dataset = load_textcaps_data(num_samples)
         
-        # Veri setini böl
+        # Split the dataset
         val_size = int(len(dataset) * val_split)
         train_dataset = dataset[val_size:]
         val_dataset = dataset[:val_size]
-        
+
         logger.info(f"Training on {len(train_dataset)} samples")
         logger.info(f"Validating on {len(val_dataset)} samples")
-        
+
         # Create data loaders
         train_data = TextCapsDataset(train_dataset)
         val_data = TextCapsDataset(val_dataset)
-        
+
         train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_data, batch_size=batch_size)
 
@@ -207,7 +207,7 @@ def train_model(
             train_loss = 0
             for batch in train_loader:
                 inputs = {k: v.to(device) for k, v in batch.items()}
-                
+
                 optimizer.zero_grad()
                 outputs = model(**inputs)
                 loss = criterion(outputs, inputs['pixel_values'])
@@ -239,7 +239,7 @@ def train_model(
         logger.error(f"Training failed: {e}")
         raise
 
-# -------------------- Test Fonksiyonu --------------------
+# -------------------- Test Function --------------------
 def test_with_local_image(model_path, image_path):
     model = EnhancedTextToImageModel()
     model.load_state_dict(torch.load(model_path))
@@ -271,7 +271,7 @@ def test_with_local_image(model_path, image_path):
     plt.savefig("textcaps_output_1k.png")
     plt.show()
 
-# -------------------- Ana İşlem --------------------
+# -------------------- Main Execution --------------------
 if __name__ == "__main__":
     try:
         trained_model = train_model()

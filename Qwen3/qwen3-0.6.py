@@ -11,7 +11,7 @@ from tqdm import tqdm
 import os
 
 
-# --- Konumsal Kodlama ---
+# --- Positional Encoding ---
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model: int, max_seq_length: int = 32768):
         super().__init__()
@@ -38,7 +38,7 @@ class RMSNorm(nn.Module):
         return self.weight * (x / rms)
 
 
-# --- GQA Mekanizması ---
+# --- GQA Mechanism ---
 class GroupedQueryAttention(nn.Module):
     def __init__(self, hidden_size: int, num_q_heads: int = 8, num_kv_heads: int = 4, dropout: float = 0.1):
         super().__init__()
@@ -100,7 +100,7 @@ class FeedForwardNetwork(nn.Module):
         return self.dropout(self.fc2(self.act(self.fc1(x))))
 
 
-# --- Transformer Katmanı ---
+# --- Transformer Layer ---
 class TransformerLayer(nn.Module):
     def __init__(self, hidden_size: int, num_q_heads: int, num_kv_heads: int, intermediate_size: int, dropout: float = 0.1):
         super().__init__()
@@ -123,7 +123,7 @@ class TransformerLayer(nn.Module):
         return hidden_states
 
 
-# --- Ana Model ---
+# --- Main Model ---
 class Qwen3SmallModel(nn.Module):
     def __init__(
         self,
@@ -193,7 +193,7 @@ class Qwen3SmallModel(nn.Module):
         return {"loss": loss, "logits": logits}
 
 
-# --- Dataset ve Collate Fonksiyonu ---
+# --- Dataset and Collate Function ---
 class HFDataset(Dataset):
     def __init__(self, dataset, tokenizer, max_length=512):
         self.dataset = dataset
@@ -208,8 +208,8 @@ class HFDataset(Dataset):
         question = item['soru'].strip()
         answer = item['cevap'].strip()
         if len(answer.split()) < 5:
-            answer += " Belirtilmemiş."
-        text = f"Soru: {question}\nCevap: {answer}"
+            answer += " Not specified."
+        text = f"Question: {question}\nAnswer: {answer}"
         encoded = self.tokenizer(text, truncation=True, padding='max_length', max_length=self.max_length, return_tensors="pt")
         input_ids = encoded["input_ids"].squeeze(0)
         return {
@@ -230,7 +230,7 @@ def collate_fn(batch):
     }
 
 
-# --- Generate Fonksiyonu (Top-k ve Top-p Sampling ile) ---
+# --- Generate Function (Top-k and Top-p Sampling) ---
 def generate_text(model, prompt, tokenizer, device="cuda", max_new_tokens=100, temperature=0.4, top_k=50, top_p=0.9):
     model.eval()
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512).to(device)
@@ -307,7 +307,7 @@ def generate_text(model, prompt, tokenizer, device="cuda", max_new_tokens=100, t
     return answer
 
 
-# --- Eğitim Fonksiyonu ---
+# --- Training Function ---
 def train_model(
     model, 
     dataloader, 
@@ -361,13 +361,16 @@ def train_model(
             total_loss += loss.item() * gradient_accumulation_steps
             bar.set_postfix(loss=loss.item() * gradient_accumulation_steps, lr=optimizer.param_groups[0]['lr'])
             
-        print(f"Epoch {epoch+1} Ortalama Kayıp: {total_loss / len(dataloader):.4f}, Süre: {time.time()-start_time:.2f}s")
+        print(
+            f"Epoch {epoch+1} Average Loss: {total_loss / len(dataloader):.4f}, "
+            f"Duration: {time.time()-start_time:.2f}s"
+        )
 
 
-# --- Main Fonksiyonu ---
+# --- Main Function ---
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Cihaz: {device}")
+    print(f"Device: {device}")
 
     tokenizer = AutoTokenizer.from_pretrained("dbmdz/bert-base-turkish-cased")
     
@@ -426,7 +429,7 @@ def main():
         num_training_steps=total_steps
     )
 
-    print(f"Model Eğitiliyor... (Etkin batch boyutu: {effective_batch_size})")
+    print(f"Training model... (Effective batch size: {effective_batch_size})")
     train_model(
         model, 
         train_loader, 
@@ -439,20 +442,20 @@ def main():
         save_steps=200
     )
 
-    print("\nTest Başlatılıyor...")
+    print("\nStarting evaluation...")
     sample_questions = [
-        "Yatırım fonlarına yatırım yapmanın dezavantajları nelerdir?",
-        "Kamu harcamaları neleri içerir?"
+        "What are the disadvantages of investing in mutual funds?",
+        "What do public expenditures include?"
     ]
     for question in sample_questions:
-        prompt = f"Soru: {question}\nCevap:"
+        prompt = f"Question: {question}\nAnswer:"
         answer = generate_text(model, prompt, tokenizer, device=device)
-        print(f"\nSoru: {question}")
-        print(f"Model Cevabı: {answer}")
+        print(f"\nQuestion: {question}")
+        print(f"Model Answer: {answer}")
 
     final_model_path = "c:/Users/emreq/Desktop/Transformers/Qwen3/turkiye_finance_qa_model_improved.pt"
     torch.save(model.state_dict(), final_model_path)
-    print(f"Model kaydedildi: {final_model_path}")
+    print(f"Model saved to: {final_model_path}")
 
 
 if __name__ == "__main__":
