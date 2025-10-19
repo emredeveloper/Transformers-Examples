@@ -1,78 +1,78 @@
-# Gelişmiş Multimodal Transformer Modeli
+# Advanced Multimodal Transformer Model
 
-Bu proje, gerçek video, ses ve metin verilerini işleyebilen gelişmiş bir multimodal (çoklu-modal) transformer modeli içermektedir. Model, verilen video, ses ve metin verilerini birleştirerek sınıflandırma yapmak üzere tasarlanmıştır.
+This project contains an advanced multimodal transformer capable of processing real video, audio, and text data. The model fuses the provided modalities to perform classification.
 
-## Özellikler
+## Features
 
-- Gerçek video dosyalarını işleme
-- Gerçek ses dosyalarını işleme
-- İlgili metin dosyalarını işleme
-- Tüm modalitelerin füzyonu ile sınıflandırma
-- Video için gelişmiş 3D-CNN mimarisi
-- Ses için gelişmiş spektrogram işleme
-- Türkçe metin desteği (BERT tabanlı)
+- Process real video files
+- Process real audio files
+- Parse accompanying text descriptions
+- Fuse all modalities for classification
+- Use an enhanced 3D-CNN backbone for video
+- Apply advanced spectrogram processing for audio
+- Provide BERT-based text support
 
-## Proje İçeriği
+## Project Layout
 
-- `basic-multimodal.py`: Ana kod dosyası
-- `requirements.txt`: Gerekli Python paketleri
-- `multimodal_dataset/`: Veri klasörü
-  - `videos/`: Video dosyaları
-  - `audios/`: Ses dosyaları
-  - `texts/`: Metin dosyaları
-  - `metadata.json`: Veri seti metadatası
+- `basic-multimodal.py`: Main application script
+- `requirements.txt`: Required Python packages
+- `multimodal_dataset/`: Dataset folder
+  - `videos/`: Video files
+  - `audios/`: Audio files
+  - `texts/`: Text files
+  - `metadata.json`: Dataset metadata
 
-## Kurulum
+## Installation
 
-Gerekli paketleri yüklemek için:
+Install the dependencies with:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Kullanım
+## Usage
 
-Model, hem örnek veri ile hem de gerçek video, ses ve metin dosyalarıyla çalışabilir:
+The model can run with either sample data or your own video, audio, and text files:
 
 ```bash
 python basic-multimodal.py
 ```
 
-Program çalıştığında size iki seçenek sunacaktır:
-1. Örnek veri (otomatik oluşturulan demo)
-2. Gerçek veri (kendi video, ses ve metin dosyalarınız)
+When the program starts it offers two options:
+1. Sample data (automatically generated demo)
+2. Real data (provide your own video, audio, and text files)
 
-Gerçek veri seçeneğini seçtiğinizde:
-1. Video dosyalarınızı `multimodal_dataset/videos/` klasörüne koyun
-2. Ses dosyalarınızı `multimodal_dataset/audios/` klasörüne koyun
-3. Her örnek için metin açıklamalarını girebilir veya `multimodal_dataset/texts/` klasörüne koyabilirsiniz
+If you choose real data:
+1. Place video files in `multimodal_dataset/videos/`
+2. Place audio files in `multimodal_dataset/audios/`
+3. Provide text descriptions for each example or add files to `multimodal_dataset/texts/`
 
-## Model Mimarisi
+## Model Architecture
 
-Bu gelişmiş multimodal model üç temel bileşenden oluşmaktadır:
+The multimodal model consists of three primary components:
 
-1. **Video Enkoder**: 3D CNN kullanarak videolardan özellik çıkarımı yapar
-   - 224x224 çözünürlük
-   - 16 frame işleme
-   - AdaptiveAvgPool ve dropout katmanları
+1. **Video Encoder**: Extracts features from videos using a 3D CNN
+   - 224×224 resolution
+   - 16 frames per clip
+   - Adaptive average pooling and dropout layers
 
-2. **Ses Enkoder**: Spektrogramlar üzerinde 2D CNN kullanarak seslerden özellik çıkarımı yapar
-   - Mel spektrogramları
-   - 128 mel-filtre bandı
-   - 5 saniyelik ses örnekleri
+2. **Audio Encoder**: Extracts features from spectrograms using a 2D CNN
+   - Mel spectrogram inputs
+   - 128 mel filter bands
+   - 5-second audio segments
 
-3. **Metin Enkoder**: Türkçe BERT modeli kullanarak metinlerden özellik çıkarımı yapar
+3. **Text Encoder**: Uses a BERT model to produce text embeddings
 
-Çoklu-modal füzyon için:
-- Transformer-tabanlı cross-attention
-- Multi-head attention mekanizması
-- Katmanlı normalizasyon
+For multimodal fusion the pipeline includes:
+- Transformer-based cross-attention
+- Multi-head attention
+- Layer normalisation
 
-## Çıktılar
+## Outputs
 
-Model eğitim sonuçları, görseller ve eğitilen model `multimodal_dataset/` dizini içinde kaydedilir.
+Training artefacts, visualisations, and the trained model are saved inside the `multimodal_dataset/` directory.
 
-## Gereksinimler
+## Requirements
 
 - Python 3.7+
 - PyTorch 1.9+

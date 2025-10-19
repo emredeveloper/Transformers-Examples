@@ -255,22 +255,22 @@ import numpy as np
 from PIL import Image
 import torch
 
-# Görüntüyü yükle
-image_path = "unnamed.png"  # Görüntü yolunu buraya girin
+# Load an example image
+image_path = "unnamed.png"  # Provide the image path here
 image = np.array(Image.open(image_path))
 
-# Görüntüyü parçalara ayır
+# Generate crops from the image
 output = overlap_crop_image(image, overlap_margin=4, max_crops=12)
 
-# Sadece yerel parçaları al (ilk öğe global crop olduğu için atlıyoruz)
-local_crops = output["crops"][1:]  # Skip the first (global) crop
+# Retrieve only the local crops (skip the first global crop)
+local_crops = output["crops"][1:]
 
-# Parçaları tekrar birleştir
-crops_tensor = torch.from_numpy(local_crops).float()  # Numpy dizisini PyTorch tensörüne dönüştür
+# Stitch the crops back together
+crops_tensor = torch.from_numpy(local_crops).float()  # Convert numpy array to PyTorch tensor
 reconstructed_image = reconstruct_from_crops(crops_tensor, output["tiling"], overlap_margin=4)
 
-# Yeniden oluşturulmuş görüntüyü numpy dizisine dönüştür ve görüntüleyin
+# Convert the reconstructed image to numpy and display it
 reconstructed_image_np = reconstructed_image.cpu().numpy().astype(np.uint8)
 reconstructed_pil_image = Image.fromarray(reconstructed_image_np)
-reconstructed_pil_image.save("reconstructed_image.jpg")  # Yeniden oluşturulmuş görüntüyü kaydet
-reconstructed_pil_image.show()  # Yeniden oluşturulmuş görüntüyü görüntüle
+reconstructed_pil_image.save("reconstructed_image.jpg")  # Save the reconstructed image
+reconstructed_pil_image.show()  # Display the reconstructed image
