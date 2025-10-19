@@ -88,4 +88,8 @@ Before submitting:
 - Share knowledge and best practices
 - Welcome feedback and suggestions
 
+## 📄 License
+
+By contributing to this repository, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+
 Thank you for contributing! 🚀

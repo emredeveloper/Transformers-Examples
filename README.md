@@ -24,7 +24,9 @@ Bu repository, modern derin öğrenme modellerinin farklı yönlerini gösteren 
 ### Önemli Dosyalar
 
 - **`test-time-scaling.py`** - Dil modelleri için test-time scaling implementasyonu
-- **`requirements.txt`** - Tüm gerekli Python bağımlılıkları
+- **`requirements.txt`** - Temel Python bağımlılıkları
+- **`requirements-jax.txt`** - JAX ekosistemi için ek bağımlılıklar
+- **`requirements-dev.txt`** - Geliştirme ve ileri seviye eğitim araçları
 - **`setup.sh`** - Otomatik kurulum script'i
 - **`.env.example`** - Çevre değişkenleri şablonu
 - **`CONTRIBUTING.md`** - Katkıda bulunma rehberi
@@ -44,9 +46,13 @@ Sisteminizde Python 3.7+ yüklü olduğundan emin olun.
 git clone https://github.com/emredeveloper/Transformers-Examples.git
 cd Transformers-Examples
 
-# Otomatik kurulum script'ini çalıştırın
+# Otomatik kurulum script'ini çalıştırın (varsayılan profil: base)
 chmod +x setup.sh
 ./setup.sh --venv
+# JAX veya geliştirme bağımlılıklarını da eklemek için:
+# ./setup.sh --profile jax
+# ./setup.sh --profile dev
+# ./setup.sh --profile all
 ```
 
 **Manuel Kurulum:**
@@ -72,7 +78,19 @@ source .venv/bin/activate
 
 ```bash
 pip install -r requirements.txt
+# JAX örnekleri için ek bağımlılıklar:
+# pip install -r requirements-jax.txt
+# Geliştirme araçları için:
+# pip install -r requirements-dev.txt
 ```
+
+### Bağımlılık Profilleri
+
+- **Base (`requirements.txt`)**: PyTorch, Transformers ve çoğu örnek için gerekli çekirdek paketler.
+- **JAX (`requirements-jax.txt`)**: JAX tabanlı deneyler ve örnekler için gerekli `jax`, `jaxlib` ve `flax` paketleri.
+- **Development (`requirements-dev.txt`)**: Not defterleri, büyük ölçekli eğitim yardımcıları ve gelişmiş araçlar (`jupyter`, `notebook`, `fairscale`, `deepspeed`).
+
+`setup.sh` script'i bu profilleri `--profile` parametresiyle otomatik olarak yükleyebilir. Varsayılan profil `base`'dir.
 
 4. Çevre değişkenlerini ayarlayın:
 
@@ -196,7 +214,7 @@ Detaylı bilgi için `CONTRIBUTING.md` dosyasını kontrol edin.
 
 ## 📄 Lisans
 
-Bu proje açık kaynaklıdır ve MIT Lisansı altında mevcuttur.
+Bu proje açık kaynaklıdır ve [MIT Lisansı](LICENSE) altında mevcuttur. Depoda yer alan bazı üçüncü parti örnekler kendi lisans metinlerini (örn. Apache 2.0) içerebilir ve ilgili dizinlerde belirtilen şartlarla dağıtılır.
 
 ## 🔍 Notlar
 
@@ -227,3 +245,21 @@ Repository, çeşitli transformer varyantları için performans karşılaştırm
 - Model optimizasyon teknikleri analizi
 
 Detaylı sonuçlar için `Architecture/` dizinini ve generate edilen PNG dosyalarını kontrol edin. 
+
+## ✅ Test ve Kod Kalitesi
+
+Hafif testleri ve kod kalite kontrollerini çalıştırmak için isteğe bağlı geliştirme bağımlılıklarını yükleyin:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+Ardından aşağıdaki komutları çalıştırabilirsiniz:
+
+```bash
+pytest
+ruff check tests
+black --check tests
+```
+
+Sürekli entegrasyon iş akışı bu kontrolleri otomatik olarak yürütür.
