@@ -1,187 +1,187 @@
-# DiT (Diffusion Transformer) Kodunun Detaylı Açıklaması
+# Detailed Walkthrough of the DiT (Diffusion Transformer) Code
 
-## 1. Genel Bakış
-Bu kod, görsel üretimi için kullanılan **Diffusion Transformer (DiT)** mimarisinin dinamik bir versiyonudur. Temel amacı, metinden görsel üretmek veya görsel iyileştirme yapmaktır.
+## 1. Overview
+This module implements a dynamic version of the **Diffusion Transformer (DiT)** architecture for image generation. It can be used for text-to-image synthesis as well as refinement tasks such as super-resolution or inpainting.
 
-## 2. Yardımcı Fonksiyonlar
+## 2. Utility Functions
 
-### `round_to_nearest` Fonksiyonu
+### `round_to_nearest`
 ```python
 def round_to_nearest(input_size, width_mult, num_heads, min_value=1):
 ```
-- **Amacı**: Ağın boyutlarını attention head sayısına göre uygun şekilde yuvarlar
-- **Kullanımı**: Dinamik genişlik ayarlaması için
-- **Çalışma Prensibi**: width_mult parametresini num_heads'e göre normalize eder
+- **Purpose**: Round model widths so they align with the attention head count.
+- **Usage**: Ensures dynamic width scaling remains compatible with the number of heads.
+- **How it works**: Normalises `width_mult` with respect to `num_heads` and clamps to `min_value`.
 
-## 3. Dinamik Linear Katmanlar
+## 3. Dynamic Linear Layers
 
-### `DynaLinear` Sınıfı
+### `DynaLinear`
 ```python
 class DynaLinear(nn.Linear):
 ```
-- **Amacı**: Çalışma zamanında boyutu değişebilen linear katman
-- **Özellikler**:
-  - `in_features` ve `out_features` dinamik olarak ayarlanabilir
-  - `width_mult` parametresi ile genişlik kontrolü
-  - `dyna_dim` ile hangi boyutların dinamik olacağı belirlenir
+- **Goal**: Provide a linear layer whose input and output dimensions can change at runtime.
+- **Highlights**:
+  - `in_features` and `out_features` can be reconfigured on the fly.
+  - `width_mult` controls the width multiplier.
+  - `dyna_dim` determines which dimension is treated dynamically.
 
-### `DynaQKVLinear` Sınıfı
+### `DynaQKVLinear`
 ```python
 class DynaQKVLinear(nn.Linear):
 ```
-- **Amacı**: Attention mekanizması için Query, Key, Value matrislerini üreten dinamik katman
-- **Özellikler**:
-  - QKV'yi tek seferde hesaplar (3 ayrı matris)
-  - `einops` kütüphanesi ile tensor reshape işlemleri
-  - Dinamik boyut ayarlaması
+- **Goal**: Produce the query, key, and value matrices with a single projection.
+- **Highlights**:
+  - Generates Q, K, and V in one pass.
+  - Uses `einops` for concise tensor reshaping.
+  - Supports dynamic width selection just like `DynaLinear`.
 
-## 4. Attention Mekanizması
+## 4. Attention Mechanism
 
-### `Attention` Sınıfı
+### `Attention`
 ```python
 class Attention(nn.Module):
 ```
-- **Amacı**: Multi-head self-attention mekanizması
-- **Bileşenler**:
-  - `qkv`: Query, Key, Value üretimi için DynaQKVLinear
-  - `q_norm`, `k_norm`: Query ve Key normalizasyonu
-  - `proj`: Çıkış projeksiyonu için DynaLinear
-  - `channel_mask`: Dinamik kanal maskeleme
+- **Goal**: Implement the multi-head self-attention block.
+- **Components**:
+  - `qkv`: A `DynaQKVLinear` layer that emits query, key, and value tensors.
+  - `q_norm`, `k_norm`: Normalisation layers applied to query and key tensors.
+  - `proj`: A `DynaLinear` layer for the final projection.
+  - `channel_mask`: Optional channel-wise masking for dynamic pruning.
 
-**Çalışma Prensibi**:
-1. Input tensor'dan Q, K, V üretir
-2. Attention skorlarını hesaplar
-3. Channel mask uygulanabilir
-4. Sonucu project eder
+**Execution Flow**:
+1. Compute Q, K, and V from the input tensor.
+2. Form attention scores and apply normalisation.
+3. Optionally apply channel masks for sparsity.
+4. Project the attended result back to the model dimension.
 
 ## 5. MLP (Multi-Layer Perceptron)
 
-### `Mlp` Sınıfı
+### `Mlp`
 ```python
 class Mlp(nn.Module):
 ```
-- **Amacı**: Feed-forward ağ
-- **Yapısı**:
-  - `fc1`: İlk linear katman (genişletme)
-  - `act`: Aktivasyon fonksiyonu (GELU)
-  - `fc2`: İkinci linear katman (daraltma)
-  - Channel masking desteği
+- **Goal**: Standard feed-forward network.
+- **Structure**:
+  - `fc1`: Expands the hidden dimension.
+  - `act`: GELU activation.
+  - `fc2`: Projects back to the model width.
+  - Built-in support for channel masking.
 
-## 6. Embedding Katmanları
+## 6. Embedding Modules
 
-### `TimestepEmbedder` Sınıfı
+### `TimestepEmbedder`
 ```python
 class TimestepEmbedder(nn.Module):
 ```
-- **Amacı**: Diffusion timestep'lerini vektör formatına çevirir
-- **Yöntem**: Sinusoidal embedding + MLP
-- **Kullanımı**: Diffusion process'inde hangi adımda olduğumuzu modele söyler
+- **Goal**: Encode diffusion timesteps into vector representations.
+- **Technique**: Sinusoidal embeddings followed by an MLP.
+- **Usage**: Provides the model with information about the current diffusion step.
 
-### `LabelEmbedder` Sınıfı
+### `LabelEmbedder`
 ```python
 class LabelEmbedder(nn.Module):
 ```
-- **Amacı**: Sınıf etiketlerini embedding'e çevirir
-- **Özellikler**:
-  - Classifier-free guidance için dropout desteği
-  - Training sırasında random etiket düşürme
+- **Goal**: Embed class labels.
+- **Highlights**:
+  - Includes dropout for classifier-free guidance.
+  - Randomly drops labels during training to improve unconditional generation.
 
-## 7. Ana Model Bileşenleri
+## 7. Core Model Components
 
-### `DiTBlock` Sınıfı
+### `DiTBlock`
 ```python
 class DiTBlock(nn.Module):
 ```
-- **Amacı**: DiT'in temel yapı taşı
-- **Bileşenler**:
-  - `norm1`, `norm2`: Layer normalization
-  - `attn`: Attention mekanizması
-  - `mlp`: Feed-forward ağ
-  - `adaLN_modulation`: Adaptive Layer Norm modülasyonu
-  - `attn_rate`, `mlp_rate`: Dinamik oran kontrolleri
-  - `token_selection`: Token seçim mekanizması
+- **Goal**: The fundamental building block of the DiT architecture.
+- **Components**:
+  - `norm1`, `norm2`: Layer-normalisation layers.
+  - `attn`: The dynamic attention module.
+  - `mlp`: Feed-forward network.
+  - `adaLN_modulation`: Adaptive layer-norm modulation unit.
+  - `attn_rate`, `mlp_rate`: Runtime controls for channel counts.
+  - `token_selection`: Mechanism for selecting the most informative tokens.
 
-**AdaLN-Zero Kondisyonlama**:
-- Timestep ve class bilgilerini kullanarak normalizasyon parametrelerini ayarlar
-- `shift` ve `scale` parametreleri ile kondisyonlama yapar
+**AdaLN-Zero Conditioning**:
+- Uses timestep and class embeddings to modulate the normalisation parameters.
+- Applies `shift` and `scale` values to adapt each block based on the conditioning signal.
 
-### `FinalLayer` Sınıfı
+### `FinalLayer`
 ```python
 class FinalLayer(nn.Module):
 ```
-- **Amacı**: Son çıkış katmanı
-- **Görevi**: Hidden state'i patch formatına dönüştürür
+- **Goal**: Convert the hidden representation back to the patch format.
+- **Responsibility**: Map the processed tokens into the final pixel-space patches.
 
-## 8. Ana DiT Modeli
+## 8. The Main DiT Model
 
-### `DiT` Sınıfı
+### `DiT`
 ```python
 class DiT(nn.Module):
 ```
-- **Amacı**: Ana diffusion transformer modeli
-- **Bileşenler**:
-  - `x_embedder`: Görsel patch embedding
-  - `t_embedder`: Timestep embedding
-  - `y_embedder`: Label embedding
-  - `pos_embed`: Pozisyonel embedding (sabit)
-  - `blocks`: DiTBlock'ların listesi
-  - `final_layer`: Son çıkış katmanı
+- **Goal**: Assemble the full diffusion transformer pipeline.
+- **Components**:
+  - `x_embedder`: Converts image patches into embeddings.
+  - `t_embedder`: Encodes diffusion timesteps.
+  - `y_embedder`: Encodes class labels (optional).
+  - `pos_embed`: Static positional embeddings.
+  - `blocks`: A stack of `DiTBlock` instances.
+  - `final_layer`: Produces the reconstructed image patches.
 
 **Forward Pass**:
-1. Görsel input'u patch'lere böler ve embedding'e çevirir
-2. Timestep ve label embedding'lerini hesaplar
-3. Tüm DiTBlock'lardan geçirir
-4. Final layer ile çıkış üretir
-5. Patch'leri geri görsel formatına çevirir
+1. Split the input image into patches and embed them.
+2. Add timestep and (optional) label embeddings.
+3. Propagate through every `DiTBlock` with adaptive conditioning.
+4. Decode through the final layer.
+5. Reassemble the patches into the output image tensor.
 
-### `forward_with_cfg` Metodu
-- **Amacı**: Classifier-free guidance ile çıkarım
-- **Yöntem**: Conditional ve unconditional prediction'ları birleştirir
+### `forward_with_cfg`
+- **Goal**: Perform inference with classifier-free guidance.
+- **Method**: Combine conditional and unconditional predictions to steer the output.
 
-## 9. Pozisyonel Embedding Fonksiyonları
+## 9. Positional Embedding Helpers
 
-### `get_2d_sincos_pos_embed` ve İlgili Fonksiyonlar
-- **Amacı**: 2D pozisyonel embedding'ler oluşturur
-- **Yöntem**: Sinüs-cosinüs tabanlı encoding
-- **Kullanımı**: Spatial pozisyon bilgisini modele verir
+### `get_2d_sincos_pos_embed` and Friends
+- **Goal**: Generate 2D sinusoidal positional embeddings.
+- **Technique**: Use sine/cosine patterns across both spatial axes.
+- **Usage**: Inject spatial coordinates into the transformer input.
 
-## 10. Model Konfigürasyonları
+## 10. Model Configurations
 
-### Önceden Tanımlı Modeller
+### Predefined Variants
 ```python
 DiT_models = {
-    'DiT-XL/2': DiT_XL_2,  # En büyük model, 2x2 patch
-    'DiT-L/2':  DiT_L_2,   # Büyük model
-    'DiT-B/2':  DiT_B_2,   # Orta model
-    'DiT-S/2':  DiT_S_2,   # Küçük model
+    'DiT-XL/2': DiT_XL_2,  # Largest model, 2x2 patches
+    'DiT-L/2':  DiT_L_2,   # Large model
+    'DiT-B/2':  DiT_B_2,   # Base model
+    'DiT-S/2':  DiT_S_2,   # Small model
 }
 ```
 
-**Model Boyutları**:
-- **XL**: 28 katman, 1152 hidden size, 16 head
-- **L**: 24 katman, 1024 hidden size, 16 head
-- **B**: 12 katman, 768 hidden size, 12 head
-- **S**: 12 katman, 384 hidden size, 6 head
+**Model Sizes**:
+- **XL**: 28 layers, 1152 hidden size, 16 heads.
+- **L**: 24 layers, 1024 hidden size, 16 heads.
+- **B**: 12 layers, 768 hidden size, 12 heads.
+- **S**: 12 layers, 384 hidden size, 6 heads.
 
-**Patch Boyutları**:
-- `/2`: 2x2 patch (yüksek çözünürlük)
-- `/4`: 4x4 patch (orta çözünürlük)
-- `/8`: 8x8 patch (düşük çözünürlük)
+**Patch Options**:
+- `/2`: 2×2 patches (highest resolution).
+- `/4`: 4×4 patches (medium resolution).
+- `/8`: 8×8 patches (lowest resolution).
 
-## 11. Dinamik Özellikler
+## 11. Dynamic Capabilities
 
-Bu kod'un en önemli özelliği **dinamik adaptasyon** kabiliyeti:
+The signature feature of this implementation is its **dynamic adaptation**:
 
-1. **Dinamik Kanal Sayısı**: `attn_rate` ve `mlp_rate` ile kanal sayısı çalışma zamanında ayarlanır
-2. **Token Seçimi**: `token_selection` ile önemli token'lar seçilir
-3. **Adaptive Genişlik**: `width_mult` parametresi ile model genişliği ayarlanır
-4. **Conditional Execution**: `complete_model` parametresi ile tam model veya dinamik model seçimi
+1. **Channel Scaling**: `attn_rate` and `mlp_rate` adjust channel counts on the fly.
+2. **Token Selection**: `token_selection` prunes to the most informative tokens.
+3. **Adaptive Width**: `width_mult` widens or narrows layers dynamically.
+4. **Conditional Execution**: `complete_model` toggles between the full and dynamic variants.
 
-## 12. Kullanım Alanları
+## 12. Use Cases
 
-- **Görsel Üretimi**: Text-to-image generation
-- **Görsel Düzenleme**: Image inpainting, super-resolution
-- **Stil Transfer**: Style-aware image generation
-- **Conditional Generation**: Class-conditional image synthesis
+- **Image Generation**: Text-to-image workflows.
+- **Image Editing**: Inpainting, outpainting, and super-resolution.
+- **Style Transfer**: Style-aware synthesis and adaptation.
+- **Conditional Generation**: Class-conditioned or prompt-conditioned sampling.
 
-Bu kod, modern diffusion modellerinin transformer mimarisi ile kombinasyonunu gösteriyor ve dinamik adaptasyon ile efficiency'yi artırmaya odaklanıyor.
+Overall, the code demonstrates how modern diffusion models can benefit from transformer architectures while leveraging dynamic adaptation to improve efficiency.

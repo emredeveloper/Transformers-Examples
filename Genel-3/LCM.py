@@ -8,45 +8,45 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-# --- Global Ayarlar ve Model Yüklemesi ---
+# --- Global configuration and model loading ---
 encoder = SentenceTransformer('paraphrase-MiniLM-L6-v2')
 
-# Başlangıç referans metin havuzu
+# Initial pool of reference texts
 reference_texts = [
-    "Kedi halının üzerine yattı.",
-    "Güneşli bir gündü.",
-    "Birden mutfaktan gürültülü bir ses geldi.",
-    "Yağmur yağıyordu.",
-    "Telefon çaldı."
+    "The cat lay down on the rug.",
+    "It was a sunny day.",
+    "A loud noise suddenly came from the kitchen.",
+    "It was raining.",
+    "The phone rang."
 ]
 reference_embeddings = encoder.encode(reference_texts)
 
-# En yakın komşu ayarları
+# Nearest-neighbour configuration
 n_neighbors = 3
 nbrs = NearestNeighbors(n_neighbors=n_neighbors, metric='cosine').fit(reference_embeddings)
 
-# Loglama fonksiyonu
+# Logging helper
 def log_query(query, results):
     with open("log.txt", "a", encoding="utf-8") as log_file:
-        log_file.write(f"{datetime.now()} - Sorgu: {query} - Sonuçlar: {results}\n")
+        log_file.write(f"{datetime.now()} - Query: {query} - Results: {results}\n")
 
-# Referans havuzunu güncelleyen fonksiyon
+# Function to update the reference pool
 def update_reference_pool(new_texts):
     global reference_texts, reference_embeddings, nbrs
     reference_texts.extend(new_texts)
     reference_embeddings = encoder.encode(reference_texts)
     nbrs = NearestNeighbors(n_neighbors=n_neighbors, metric='cosine').fit(reference_embeddings)
-    print("Referans havuzu güncellendi.")
+    print("Reference pool updated.")
 
-# K-means kümeleme fonksiyonu
+# K-means clustering helper
 def perform_clustering(n_clusters=2):
     kmeans = KMeans(n_clusters=n_clusters, random_state=42)
     clusters = kmeans.fit_predict(reference_embeddings)
-    # Küme sonuçlarını referans metinlerle eşleştiriyoruz
+    # Pair the cluster assignments with the reference texts
     cluster_info = {text: int(cluster) for text, cluster in zip(reference_texts, clusters)}
     return cluster_info
 
-# Sorgu işleme fonksiyonu (tek veya toplu sorgu desteği)
+# Query processing function (single or batched queries)
 def process_queries(queries, similarity_threshold=0.7):
     if isinstance(queries, str):
         queries = [queries]
@@ -64,13 +64,13 @@ def process_queries(queries, similarity_threshold=0.7):
                 result.append({
                     "text": reference_texts[idx],
                     "similarity": round(sim, 2),
-                    "status": "Benzerlik düşük, eşleşme yapılmadı"
+                    "status": "Similarity too low, no match"
                 })
             else:
                 result.append({
                     "text": reference_texts[idx],
                     "similarity": round(sim, 2),
-                    "status": "Eşleşme yapıldı"
+                    "status": "Match found"
                 })
         elapsed = time.time() - start
         results_all.append({
@@ -78,56 +78,56 @@ def process_queries(queries, similarity_threshold=0.7):
             "results": result,
             "processing_time_sec": round(elapsed, 4)
         })
-        # Loglama işlemi
+        # Write to the log file
         log_query(query_text, result)
     total_time = time.time() - start_total
-    print(f"Toplam işleme süresi: {total_time:.4f} saniye")
+    print(f"Total processing time: {total_time:.4f} seconds")
     return results_all
 
-# İnteraktif görselleştirme (Plotly) fonksiyonu
+# Interactive visualisation (Plotly) function
 def visualize_embeddings(query_text=None):
-    # Gerçek bir boyut indirgeme için PCA kullanılabilir.
-    # Örnek amaçlı rastgele 2D koordinatlar üretilmiştir.
+    # PCA could be applied for real dimensionality reduction.
+    # Random 2D coordinates are generated for demonstration purposes.
     np.random.seed(42)
     coords = np.random.rand(len(reference_texts), 2)
     fig = px.scatter(x=coords[:,0], y=coords[:,1], text=reference_texts,
-                     title="Referans Metinlerin Görselleştirmesi")
+                     title="Reference text visualisation")
     if query_text:
         query_embedding = encoder.encode([query_text])
-        query_coord = np.random.rand(1, 2)  # örnek koordinat
+        query_coord = np.random.rand(1, 2)  # sample coordinate
         fig.add_trace(go.Scatter(x=query_coord[:,0], y=query_coord[:,1],
                                  mode='markers+text', marker=dict(color='red', size=12),
-                                 text=[query_text], name="Sorgu Metni"))
+                                 text=[query_text], name="Query Text"))
     fig.show()
 
-# --- Ana Program Bölümü ---
+# --- Main program block ---
 if __name__ == "__main__":
-    # Referans havuzunu güncelleme (isteğe bağlı)
-    update_choice = input("Yeni referans metin eklemek ister misiniz? (E/H): ").strip().lower()
-    if update_choice == 'e':
-        new_texts_input = input("Eklemek istediğiniz metinleri virgülle ayırarak giriniz: ")
+    # Optionally update the reference pool
+    update_choice = input("Would you like to add new reference texts? (y/n): ").strip().lower()
+    if update_choice == 'y':
+        new_texts_input = input("Enter the texts you want to add, separated by commas: ")
         new_texts = [txt.strip() for txt in new_texts_input.split(",") if txt.strip()]
         if new_texts:
             update_reference_pool(new_texts)
 
-    # K-means kümeleme sonucu gösterilsin mi?
-    cluster_choice = input("Kümeleme sonuçlarını görmek ister misiniz? (E/H): ").strip().lower()
-    if cluster_choice == 'e':
+    # Show the K-means clustering results?
+    cluster_choice = input("Would you like to see the clustering results? (y/n): ").strip().lower()
+    if cluster_choice == 'y':
         clusters = perform_clustering(n_clusters=2)
-        print("Kümeleme Sonuçları:")
+        print("Clustering Results:")
         for text, cluster in clusters.items():
-            print(f"'{text}' -> Küme {cluster}")
+            print(f"'{text}' -> Cluster {cluster}")
 
-    # Toplu sorgu desteği: virgülle ayrılmış birden fazla sorgu girişi
-    queries_input = input("Sorgu cümlelerini giriniz (virgülle ayırınız): ")
+    # Batch query support: supply multiple queries separated by commas
+    queries_input = input("Enter query sentences (separated by commas): ")
     queries = [q.strip() for q in queries_input.split(",") if q.strip()]
     results = process_queries(queries)
     
     for res in results:
-        print("\nSorgu:", res["query"])
+        print("\nQuery:", res["query"])
         for item in res["results"]:
-            print(f"Metin: '{item['text']}' - Cosine Benzerliği: {item['similarity']} - Durum: {item['status']}")
+            print(f"Text: '{item['text']}' - Cosine Similarity: {item['similarity']} - Status: {item['status']}")
 
-    # İnteraktif görselleştirme: ilk sorgu için örnek
+    # Interactive visualisation: display an example for the first query
     if queries:
         visualize_embeddings(query_text=queries[0])

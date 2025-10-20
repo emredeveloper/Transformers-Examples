@@ -9,7 +9,7 @@ if hf_token:
 else:
     print("Warning: HUGGINGFACE_TOKEN environment variable not found. You may not have access to private models.")
 
-# Hugging Face'ten doğru dosyayı yüklemek için veri kümesinin yolunu doğru şekilde kontrol edin
+# Ensure the dataset path is correct before downloading from Hugging Face
 try:
     df = pl.read_parquet('hf://datasets/HuggingFaceM4/the_cauldron/textcaps/train-00011-of-00012-baf9399db4a7051d.parquet')
     print("Dataset loaded!")

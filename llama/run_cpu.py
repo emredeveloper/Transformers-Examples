@@ -209,9 +209,9 @@ def sample_top_p(probs, p):
     return next_token
 
 
-# Örnek kullanım
+# Example usage
 if __name__ == "__main__":
-    # Modeli yükle
+    # Load the model
     llama = Llama.build(
         ckpt_dir='checkpoints',
         tokenizer_path='checkpoints/tokenizer.model',
@@ -219,13 +219,13 @@ if __name__ == "__main__":
         max_batch_size=2,  # updated to allow 2 prompts
     )
 
-    # Örnek prompt
-    prompts = ["Merhaba, nasılsın?", "Python programlama hakkında bilgi verir misin?"]
+    # Example prompts
+    prompts = ["Hello, how are you?", "Could you share some information about Python programming?"]
 
-    # Metin üretme
+    # Generate completions
     results = llama.text_completion(prompts, max_gen_len=50)
 
-    # Sonuçları yazdır
+    # Print results
     for result in results:
         print(result['generation'])
         print("------")

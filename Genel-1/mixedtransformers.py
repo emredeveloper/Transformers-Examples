@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from collections import Counter
 from torch.utils.data import Dataset, DataLoader
 
 class TextProcessor:
@@ -9,11 +10,11 @@ class TextProcessor:
         self.max_len = max_len
 
     def build_vocab(self, texts):
-        counter = counter()
+        token_counter = Counter()
         for text in texts:
             tokens = text.lower().split()
-            counter.update(tokens)
-        vocab_list = ['<pad>', '<unk>'] + [word for word, _ in counter.most_common(20000)]
+            token_counter.update(tokens)
+        vocab_list = ['<pad>', '<unk>'] + [word for word, _ in token_counter.most_common(20000)]
         self.vocab = {word: idx for idx, word in enumerate(vocab_list)}
 
     def text_to_indices(self, text):
@@ -37,19 +38,19 @@ class SlidingWindowAttention(nn.Module):
         B, S, _ = x.shape
         x = x.view(B, S, self.heads, self.head_dim)
         
-        # Padding ekle
+        # Add padding on both sides of the windowed sequence
         pad_size = self.window_size
         padded_x = F.pad(x, (0,0,0,0, pad_size, pad_size))
-        
-        # Pencereleri oluştur
+
+        # Build the local attention windows
         windows = []
         for i in range(S):
             start = i
             end = start + 2*self.window_size + 1
             windows.append(padded_x[:, start:end])
         windows = torch.stack(windows, dim=1)
-        
-        # Attention hesapla
+
+        # Compute attention weights within each local window
         Q = self.query(windows)
         K = self.key(windows)
         V = self.value(windows)
@@ -97,7 +98,7 @@ class TextTransformer(nn.Module):
             x = layer(x)
         return self.classifier(x.mean(dim=1))
 
-# Test
+# Quick smoke test
 if __name__ == "__main__":
     texts = ["positive text", "negative text"]
     labels = [1, 0]

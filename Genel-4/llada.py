@@ -47,7 +47,7 @@ def decode(token_ids):
     return " ".join(words)
 
 def build_prompt(instruction, response=None):
-    # Prompt formatı
+    # Prompt format helper
     if response is not None:
         return f"Instruction: {instruction} Response: {response}"
     else:
@@ -67,13 +67,13 @@ class InstructionResponseDataset(Dataset):
             resp_ids = encode(resp)[:(max_len - prompt_len)]
             resp_ids += [vocab[PAD_TOKEN]] * ((max_len - prompt_len) - len(resp_ids))
             self.inputs.append(torch.tensor(prompt_ids, dtype=torch.long))
-            self.targets.append(torch.tensor(resp_ids, dtype=torch.long))  # Sadece response target!
+            self.targets.append(torch.tensor(resp_ids, dtype=torch.long))  # Only the response is the target
 
     def __len__(self):
         return len(self.inputs)
 
     def __getitem__(self, idx):
-        # input: prompt, target: response
+        # Returns input prompt tensor and response target tensor
         inp = self.inputs[idx]
         tgt = self.targets[idx]
         return inp, tgt
@@ -118,7 +118,11 @@ class DiffusionTextModel(nn.Module):
         # Adjust src_key_padding_mask shape
         if src_key_padding_mask is not None:
             # src_key_padding_mask: (batch, response_len) -> (batch, prompt_len + response_len)
-            pad = torch.zeros((src_key_padding_mask.shape[0], prompt_embs.shape[1]), dtype=torch.bool, device=src_key_padding_mask.device)
+            pad = torch.zeros(
+                (src_key_padding_mask.shape[0], prompt_embs.shape[1]),
+                dtype=torch.bool,
+                device=src_key_padding_mask.device,
+            )
             src_key_padding_mask = torch.cat([pad, src_key_padding_mask], dim=1)
         out = self.transformer(emb, src_key_padding_mask=src_key_padding_mask)
         out = self.fc(out)
@@ -157,7 +161,7 @@ def train_diffusion_model(model, dataloader, epochs=10, steps=16):
             mask = (batch_targets == vocab[PAD_TOKEN])
             optimizer.zero_grad()
             outputs = model(batch_prompts, noisy_targets, timestep, prompt_emb, src_key_padding_mask=mask)
-            # .view yerine .reshape kullan
+            # Prefer .reshape to avoid issues with non-contiguous tensors
             loss = criterion(outputs.reshape(-1, outputs.size(-1)), batch_targets.reshape(-1))
             loss.backward()
             optimizer.step()

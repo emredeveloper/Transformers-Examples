@@ -3,7 +3,7 @@
 import json
 from model import ModelArgs
 
-# Model parametrelerini tanımla
+# Define model parameters
 params = ModelArgs(
     dim=512,  # Updated to be divisible by 16 heads
     n_layers=16,
@@ -14,7 +14,7 @@ params = ModelArgs(
 )
 
 
-# Parametreleri bir sözlük olarak kaydet
+# Store parameters as a dictionary
 params_dict = {
     "dim": params.dim,
     "n_layers": params.n_layers,
@@ -24,7 +24,7 @@ params_dict = {
     "max_batch_size": params.max_batch_size,
 }
 
-# JSON dosyasına kaydet
+# Write to JSON
 with open("checkpoints/params.json", "w") as f:
     json.dump(params_dict, f, indent=4)
-print("Model parametreleri 'checkpoints/params.json' olarak kaydedildi.")
+print("Model parameters saved to 'checkpoints/params.json'.")
