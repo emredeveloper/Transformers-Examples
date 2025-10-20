@@ -120,7 +120,7 @@ class GroupedQueryAttention(nn.Module):
         k = self.wk(x).view(bsz, seq_len, self.n_kv_heads, self.head_dim)
         v = self.wv(x).view(bsz, seq_len, self.n_kv_heads, self.head_dim)
         
-        # RoPE uygula
+        # Apply RoPE
         cos, sin = self.rope(x, seq_len)
         q, k = apply_rotary_pos_emb(q, k, cos, sin)
         
