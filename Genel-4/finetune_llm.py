@@ -3,39 +3,39 @@ import torch
 from datasets import Dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer, pipeline
 
-# Ayarlar
+# Settings
 MODEL_NAME = "HuggingFaceTB/SmolLM-135M"
-DATA_PATH = "data.jsonl"  # JSONL dosya yolu
+DATA_PATH = "data.jsonl"  # Path to the JSONL file
 OUTPUT_DIR = "finetuned-llm"
 
-# 1. JSONL verisini yükle
+# 1. Load the JSONL data
 with open(DATA_PATH, "r", encoding="utf-8") as f:
     lines = [json.loads(line) for line in f]
 
-# 2. Dataset'e çevir
-# Prompt formatını daha belirgin ve modelin öğrenebileceği şekilde ayarlıyoruz.
+# 2. Convert to a Hugging Face Dataset
+# Format each prompt clearly so the model can learn the structure.
 def to_prompt(example):
     prompt = (
-        f"[BAŞLIK] {example['title']}\n"
-        f"[ÖZET] {example['summary']}\n"
-        f"[İÇERİK] {example['content']}\n"
-        f"[ETİKETLER] {', '.join(example['tags'])}"
+        f"[TITLE] {example['title']}\n"
+        f"[SUMMARY] {example['summary']}\n"
+        f"[CONTENT] {example['content']}\n"
+        f"[TAGS] {', '.join(example['tags'])}"
     )
     return {"text": prompt}
 
 dataset = Dataset.from_list([to_prompt(e) for e in lines])
 
-# 3. Tokenizer ve model yükle
-# pad_token ayarını koru
+# 3. Load the tokenizer and model
+# Preserve the pad_token configuration
 
-# Tokenizer yükle
+# Load the tokenizer
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
-# Model yükle
+# Load the model
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
-# 4. Tokenize fonksiyonu
+# 4. Tokenization function
 def tokenize_function(examples):
     result = tokenizer(
         examples["text"],
@@ -48,10 +48,10 @@ def tokenize_function(examples):
 
 tokenized_dataset = dataset.map(tokenize_function, batched=True)
 
-# 5. Eğitim argümanları
+# 5. Training arguments
 training_args = TrainingArguments(
     output_dir=OUTPUT_DIR,
-    num_train_epochs=5,  # Daha fazla epoch ile küçük veri için daha iyi öğrenme
+    num_train_epochs=5,  # Additional epochs help smaller datasets learn better
     per_device_train_batch_size=2,
     save_steps=10,
     save_total_limit=2,
@@ -68,33 +68,33 @@ trainer = Trainer(
     train_dataset=tokenized_dataset,
 )
 
-# 7. Eğitimi başlat
+# 7. Start training
 trainer.train()
 
-# 8. Modeli kaydet
+# 8. Save the model
 trainer.save_model(OUTPUT_DIR)
 tokenizer.save_pretrained(OUTPUT_DIR)
-print(f"Model {OUTPUT_DIR} klasörüne kaydedildi.")
+print(f"Model saved to {OUTPUT_DIR}.")
 
-# === TEST KODU ===
+# === TEST CODE ===
 def test_model():
-    print("Test başlatılıyor...")
-    # Eğitilmiş modeli ve tokenizer'ı yükle
+    print("Starting evaluation test...")
+    # Load the fine-tuned model and tokenizer
     model = AutoModelForCausalLM.from_pretrained(OUTPUT_DIR)
     tokenizer = AutoTokenizer.from_pretrained(OUTPUT_DIR)
     generator = pipeline("text-generation", model=model, tokenizer=tokenizer, device=0 if torch.cuda.is_available() else -1)
-    # Test promptunu yeni formatla oluştur
+    # Build the prompt using the new format
     prompt = (
-        "[BAŞLIK] Yapay Zeka ve 2025\n"
-        "[ÖZET] 2025 yılında yapay zeka alanında beklenen gelişmeler\n"
-        "[İÇERİK]"
+        "[TITLE] Artificial Intelligence and 2025\n"
+        "[SUMMARY] Expected developments in artificial intelligence in 2025\n"
+        "[CONTENT]"
     )
     output = generator(prompt, max_length=100, num_return_sequences=1, truncation=True)
-    print("\n--- Model Çıktısı ---")
-    # Sadece [İÇERİK] kısmından sonrasını al
+    print("\n--- Model Output ---")
+    # Extract only the portion after [CONTENT]
     generated = output[0]['generated_text']
-    if "[İÇERİK]" in generated:
-        generated = generated.split("[İÇERİK]")[1]
+    if "[CONTENT]" in generated:
+        generated = generated.split("[CONTENT]")[1]
     print(generated.strip())
 
 if __name__ == "__main__":

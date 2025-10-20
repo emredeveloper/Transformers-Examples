@@ -14,53 +14,53 @@ from PIL import Image
 import cv2
 from scipy.io import wavfile
 
-# Cihaz yapılandırması
+# Device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Kullanılan cihaz: {device}")
+print(f"Using device: {device}")
 
-# Veri yolu ayarları
+# Data path configuration
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "multimodal_dataset")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# Veri seti yapısını oluşturalım
+# Build the dataset structure
 def create_real_data_metadata():
-    """Gerçek video, ses ve metin dosyaları için metadata oluşturur"""
-    
-    # Veri dizinlerini oluştur
+    """Create metadata for real video, audio, and text files."""
+
+    # Create the data directories
     video_dir = os.path.join(DATA_DIR, "videos")
     audio_dir = os.path.join(DATA_DIR, "audios")
     text_dir = os.path.join(DATA_DIR, "texts")
-    
+
     os.makedirs(video_dir, exist_ok=True)
     os.makedirs(audio_dir, exist_ok=True)
     os.makedirs(text_dir, exist_ok=True)
-    
-    # Metadata dosyası için veri yapısı
+
+    # Data structure for the metadata file
     data_entries = []
-    
-    # Kullanıcıdan video dosyalarını yüklemesini iste
+
+    # Prompt the user to upload video files
     print("\n" + "="*80)
-    print("GERÇEK VERİ HAZIRLIĞI")
+    print("REAL DATA PREPARATION")
     print("="*80)
-    print("Bu adımda gerçek video, ses ve metin dosyalarını kullanacağız.")
-    print("Bunun için birkaç video dosyasını belirtilen klasörlere kopyaladıktan sonra metadatasını oluşturacağız.")
-    print("\nAşağıdaki işlemleri manuel olarak yapmanız gerekiyor:")
-    print(f"1. Video dosyalarınızı şu klasöre kopyalayın: {video_dir}")
-    print(f"2. Ses dosyalarınızı şu klasöre kopyalayın: {audio_dir}")
-    print(f"3. Her video/ses için metin dosyalarını şu klasöre kopyalayın: {text_dir}")
-    print("4. Video, ses ve metin dosyalarının isimlerini eşleşecek şekilde numaralandırın.")
-    print("   Örnek: video_1.mp4, audio_1.wav, text_1.txt")
-    print("\nHazır olduğunuzda ENTER tuşuna basın...")
+    print("This step uses real video, audio, and text assets.")
+    print("Copy a few files into the folders below and we will generate the metadata.")
+    print("\nPlease perform the following steps manually:")
+    print(f"1. Copy your video files to: {video_dir}")
+    print(f"2. Copy your audio files to: {audio_dir}")
+    print(f"3. Copy or create text files for each sample in: {text_dir}")
+    print("4. Make sure video, audio, and text file names align with matching indices.")
+    print("   Example: video_1.mp4, audio_1.wav, text_1.txt")
+    print("\nPress ENTER when everything is ready...")
     input()
-    
-    # Dosyaları tara ve metadata oluştur
+
+    # Scan the files and build metadata
     video_files = [f for f in os.listdir(video_dir) if f.endswith(('.mp4', '.avi', '.mov'))]
-    
+
     for i, video_file in enumerate(video_files):
         video_id = i
         video_path = os.path.join(video_dir, video_file)
-        
-        # İlgili ses dosyasını bul (aynı isimde veya numarada olan)
+
+        # Locate the matching audio file (same name or index)
         base_name = os.path.splitext(video_file)[0]
         audio_file = None
         for ext in ['.wav', '.mp3']:
@@ -68,38 +68,38 @@ def create_real_data_metadata():
             if os.path.exists(os.path.join(audio_dir, possible_audio)):
                 audio_file = possible_audio
                 break
-        
-        # Ses dosyası bulunamadıysa videodan ses çıkar
+
+        # If there is no audio file, request manual extraction
         audio_path = None
         if audio_file:
             audio_path = os.path.join(audio_dir, audio_file)
         else:
-            # Yeni bir ses dosyası ismi oluştur
+            # Suggest a new audio file name
             audio_path = os.path.join(audio_dir, f"{base_name}.wav")
-            
-            # Videodan ses çıkar (FFmpeg gerekir - kullanıcıya bilgi ver)
-            print(f"'{base_name}' için ses dosyası bulunamadı.")
-            print(f"Ses dosyasını manuel olarak oluşturup '{audio_path}' konumuna kaydedin.")
-            print("Hazır olduğunuzda ENTER tuşuna basın...")
+
+            # Ask the user to extract audio manually (FFmpeg required)
+            print(f"No audio track found for '{base_name}'.")
+            print(f"Please create the audio file manually and save it to '{audio_path}'.")
+            print("Press ENTER once the file is available...")
             input()
-        
-        # İlgili metin dosyasını bul veya oluştur
+
+        # Locate or create the corresponding text file
         text_file = base_name + ".txt"
         text_path = os.path.join(text_dir, text_file)
-        
+
         text = ""
         if os.path.exists(text_path):
             with open(text_path, 'r', encoding='utf-8') as f:
                 text = f.read().strip()
         else:
-            # Metin dosyası yoksa kullanıcıdan metin girmesini iste
-            print(f"'{base_name}' için metin açıklaması girin (video içeriğini açıklayan metin):")
+            # Ask the user to provide a text description if none exists
+            print(f"Enter a text description for '{base_name}' (describe the video content):")
             text = input().strip()
-            # Metin dosyasını kaydet
+            # Save the text file
             with open(text_path, 'w', encoding='utf-8') as f:
                 f.write(text)
-        
-        # Metadatalara ekle
+
+        # Add the sample to the metadata collection
         data_entries.append({
             "id": video_id,
             "video_path": os.path.relpath(video_path, DATA_DIR),
@@ -107,36 +107,36 @@ def create_real_data_metadata():
             "text": text,
             "text_path": os.path.relpath(text_path, DATA_DIR)
         })
-    
-    # JSON dosyasına kaydet
+
+    # Persist metadata to JSON
     metadata_path = os.path.join(DATA_DIR, "metadata.json")
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(data_entries, f, ensure_ascii=False, indent=4)
-    
-    print(f"Metadata oluşturuldu. Toplam {len(data_entries)} örnek.")
+
+    print(f"Metadata created for {len(data_entries)} samples.")
     return metadata_path
 
 
 class MultiModalDataset(Dataset):
-    """Multimodal veri seti: video, ses ve metin içeren bir dataset"""
+    """Multimodal dataset containing video, audio, and text."""
     
     def __init__(self, metadata_path, max_length=128):
         with open(metadata_path, "r", encoding="utf-8") as f:
             self.data = json.load(f)
         self.data_dir = os.path.dirname(metadata_path)
         
-        # Metin tokenizeri
+        # Text tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained("dbmdz/bert-base-turkish-cased")
         self.max_length = max_length
-        
-        # Video dönüşümleri
+
+        # Video transforms
         self.video_transform = transforms.Compose([
-            transforms.Resize((224, 224)),  # Gerçek videolar için daha büyük boyut
+            transforms.Resize((224, 224)),  # Larger resolution for real videos
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        
-        # Ses dönüşümleri
+
+        # Audio transforms
         self.audio_transform = transforms.Compose([
             transforms.Normalize(mean=[-15], std=[40])
         ])
@@ -147,7 +147,7 @@ class MultiModalDataset(Dataset):
     def __getitem__(self, idx):
         item = self.data[idx]
         
-        # Metin işleme - varsa metin dosyasını oku, yoksa direkt metin kullan
+        # Text processing - prefer reading from file, fallback to inline text
         text = item.get("text", "")
         if "text_path" in item:
             try:
@@ -156,8 +156,8 @@ class MultiModalDataset(Dataset):
                     with open(text_path, "r", encoding="utf-8") as f:
                         text = f.read().strip()
             except Exception as e:
-                print(f"Metin dosyası okuma hatası: {e}")
-        
+                print(f"Text file read error: {e}")
+
         text_encoding = self.tokenizer(
             text,
             max_length=self.max_length,
@@ -165,124 +165,124 @@ class MultiModalDataset(Dataset):
             truncation=True,
             return_tensors="pt"
         )
-        
-        # Ses işleme - wav ve mp3 formatlarını destekle
+
+        # Audio processing - support wav and mp3 formats
         audio_path = os.path.join(self.data_dir, item["audio_path"])
         try:
             if audio_path.lower().endswith('.wav'):
-                # WAV dosyaları için scipy.io.wavfile kullan
+                # Use scipy.io.wavfile for WAV files
                 sample_rate, audio_data = wavfile.read(audio_path)
-                # Int16'dan float32'ye dönüştür
+                # Convert from integer representations to float32
                 if audio_data.dtype == np.int16:
                     audio_data = audio_data.astype(np.float32) / 32767.0
                 elif audio_data.dtype == np.int32:
                     audio_data = audio_data.astype(np.float32) / 2147483647.0
                 elif audio_data.dtype == np.uint8:
                     audio_data = (audio_data.astype(np.float32) - 128) / 128.0
-                
-                # Çok kanallı sesi mono'ya dönüştür
+
+                # Convert multi-channel audio to mono
                 if len(audio_data.shape) > 1 and audio_data.shape[1] > 1:
                     audio_data = np.mean(audio_data, axis=1)
-                
-                # Tensöre çevir
+
+                # Convert to tensor
                 waveform = torch.tensor(audio_data).float().unsqueeze(0)
             else:
-                # Diğer ses formatları için torchaudio.load deneyin
+                # Fallback to torchaudio.load for other formats
                 try:
                     waveform, sample_rate = torchaudio.load(audio_path)
-                    # Stereo ise mono'ya çevir
+                    # Convert stereo to mono
                     if waveform.shape[0] > 1:
                         waveform = torch.mean(waveform, dim=0, keepdim=True)
                 except Exception as e:
-                    print(f"Ses dosyası yükleme hatası: {e}")
-                    # Boş bir ses tensörü oluştur
-                    waveform = torch.zeros(1, 16000 * 5)  # 5 saniyelik boş ses
+                    print(f"Audio load error: {e}")
+                    # Create an empty waveform placeholder
+                    waveform = torch.zeros(1, 16000 * 5)  # 5 seconds of silence
                     sample_rate = 16000
         except Exception as e:
-            print(f"Ses işleme hatası: {e}")
-            waveform = torch.zeros(1, 16000 * 5)  # 5 saniyelik boş ses
+            print(f"Audio processing error: {e}")
+            waveform = torch.zeros(1, 16000 * 5)  # 5 seconds of silence
             sample_rate = 16000
-        
-        # Yeniden örnekleme - tüm ses verilerini 16 kHz'e getir
+
+        # Resample to 16 kHz
         if sample_rate != 16000:
             resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)
             waveform = resampler(waveform)
             sample_rate = 16000
-            
-        # Sabit uzunluğa getir (5 saniye)
+
+        # Normalise duration to five seconds
         target_length = 5 * 16000
         if waveform.shape[1] < target_length:
-            # Padding ekle
+            # Pad if the audio is shorter
             padding = torch.zeros(waveform.shape[0], target_length - waveform.shape[1])
             waveform = torch.cat([waveform, padding], dim=1)
         else:
-            # Kes
+            # Trim longer audio
             waveform = waveform[:, :target_length]
-        
-        # Spektrogram oluştur
+
+        # Create a spectrogram
         spectrogram = torchaudio.transforms.MelSpectrogram(
             sample_rate=16000, n_fft=400, n_mels=128
         )(waveform)
         spectrogram = torchaudio.transforms.AmplitudeToDB()(spectrogram)
-        # İlk boyutu sıkıştır
+        # Remove the channel dimension
         spectrogram = spectrogram.squeeze(0)
-        
-        # Video işleme
+
+        # Video processing
         video_path = os.path.join(self.data_dir, item["video_path"])
         try:
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
-                raise ValueError(f"Video dosyası açılamadı: {video_path}")
-                
-            # Video bilgilerini al
+                raise ValueError(f"Unable to open video file: {video_path}")
+
+            # Gather video information
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             fps = cap.get(cv2.CAP_PROP_FPS)
-            
+
             frames = []
             frame_indices = []
-            
-            # Hedef kare sayısı
-            target_frames = 16  # Daha fazla frame al
-            
+
+            # Target number of frames
+            target_frames = 16  # Capture more frames
+
             if total_frames <= 0:
-                raise ValueError(f"Video frame sayısı sıfır veya negatif: {total_frames}")
-                
-            # Frame indislerini belirle
+                raise ValueError(f"Video frame count is zero or negative: {total_frames}")
+
+            # Determine frame indices
             if total_frames <= target_frames:
                 frame_indices = list(range(total_frames))
             else:
-                # Düzenli aralıklarla örnekleme yap
+                # Sample frames at regular intervals
                 step = total_frames / target_frames
                 frame_indices = [int(i * step) for i in range(target_frames)]
-            
+
             for frame_idx in frame_indices:
-                # Belirli bir frame'e git
+                # Seek to the desired frame
                 cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
                 ret, frame = cap.read()
                 if not ret:
                     continue
-                    
-                # BGR'den RGB'ye dönüştür
+
+                # Convert from BGR to RGB
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frame = Image.fromarray(frame)
                 frame = self.video_transform(frame)
                 frames.append(frame)
-            
+
             cap.release()
-            
-            # Eksik frame'leri doldur
+
+            # Fill any missing frames
             while len(frames) < target_frames:
                 if frames:
-                    frames.append(frames[-1])  # Son frame ile doldur
+                    frames.append(frames[-1])  # Repeat the last frame
                 else:
-                    # Boş bir frame ekle
+                    # Insert an empty frame placeholder
                     frames.append(torch.zeros(3, 224, 224))
-            
-            video_tensor = torch.stack(frames[:target_frames])  # Emin olmak için kırp
-            
+
+            video_tensor = torch.stack(frames[:target_frames])  # Ensure consistent length
+
         except Exception as e:
-            print(f"Video işleme hatası: {e}")
-            # Hata durumunda boş video tensörü döndür
+            print(f"Video processing error: {e}")
+            # Return an empty video tensor if processing fails
             video_tensor = torch.zeros(16, 3, 224, 224)
         
         return {
@@ -297,13 +297,13 @@ class MultiModalDataset(Dataset):
 
 # Model mimarisi - Multimodal Fusion
 class VideoEncoder(nn.Module):
-    """Video kodlayıcı modül - Gerçek videolar için daha güçlü"""
+    """Video encoder module tuned for real-world videos."""
     def __init__(self, embed_dim=256, input_shape=(16, 3, 224, 224)):
         super().__init__()
         
         num_frames, channels, height, width = input_shape
         
-        # 3D CNN tabanlı enkoder - daha güçlü yapı
+        # 3D CNN encoder with a deeper stack
         self.conv3d = nn.Sequential(
             nn.Conv3d(3, 64, kernel_size=(3, 3, 3), padding=(1, 1, 1)),
             nn.BatchNorm3d(64),
@@ -326,12 +326,12 @@ class VideoEncoder(nn.Module):
             nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)),  # [B, 512, F/8, H/16, W/16]
         )
         
-        # Son spatial boyutları hesapla
+        # Compute the final spatial dimensions
         f_out = num_frames // 8
         h_out = height // 16
         w_out = width // 16
         
-        # Global average pooling ve projeksiyon
+        # Global average pooling and projection
         self.avgpool = nn.AdaptiveAvgPool3d((1, 1, 1))
         self.projection = nn.Sequential(
             nn.Linear(512, 1024),
@@ -341,34 +341,34 @@ class VideoEncoder(nn.Module):
         )
         
     def forward(self, x):
-        # x girişi: [batch_size, frames, channels, height, width]
-        # 3D CNN için: [batch_size, channels, frames, height, width]
+        # Input x: [batch_size, frames, channels, height, width]
+        # Reorder for 3D CNN: [batch_size, channels, frames, height, width]
         x = x.permute(0, 2, 1, 3, 4)
         
         try:
-            # İleri geçişi gerçekleştir
+            # Standard forward pass
             x = self.conv3d(x)
             # Global average pooling
             x = self.avgpool(x)
             x = x.reshape(x.size(0), -1)
             x = self.projection(x)
         except RuntimeError as e:
-            # Hata oluşursa boyutları yazdır ve daha güvenli bir forward uygula
-            print(f"VideoEncoder hatası: {e}")
-            print(f"Giriş boyutları: {x.shape}")
-            
-            # Güvenli alternatif: Basitleştirilmiş işleme
+            # On failure, report the shape and use a safer path
+            print(f"VideoEncoder error: {e}")
+            print(f"Input shape: {x.shape}")
+
+            # Safe alternative: simplified processing
             batch_size = x.size(0)
             x = torch.mean(x, dim=(2, 3, 4))  # Global average pooling [B, C]
             x = torch.nn.functional.normalize(x, p=2, dim=1)
-            x = torch.nn.functional.linear(x, 
+            x = torch.nn.functional.linear(x,
                                           torch.randn(256, x.size(1), device=x.device))
             
         return x
 
 
 class AudioEncoder(nn.Module):
-    """Ses kodlayıcı modül - Gerçek ses verileri için daha güçlü"""
+    """Audio encoder module designed for high-fidelity audio."""
     def __init__(self, embed_dim=256):
         super().__init__()
         self.conv = nn.Sequential(
@@ -393,7 +393,7 @@ class AudioEncoder(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2)   # [B, 512, F/16, T/16]
         )
         
-        # Global average pooling ve projeksiyon
+        # Global average pooling and projection
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.projection = nn.Sequential(
             nn.Linear(512, 1024),
@@ -403,38 +403,39 @@ class AudioEncoder(nn.Module):
         )
         
     def forward(self, x):
-        # x girişi: [batch_size, freq_bins, time_frames]
+        # Input x: [batch_size, freq_bins, time_frames]
         x = x.unsqueeze(1)  # [batch_size, 1, freq_bins, time_frames]
-        
+
         try:
-            # İleri geçişi gerçekleştir
+            # Standard forward pass
             x = self.conv(x)
             # Global average pooling
             x = self.avgpool(x)
             x = x.reshape(x.size(0), -1)
             x = self.projection(x)
         except RuntimeError as e:
-            print(f"AudioEncoder hatası: {e}")
-            print(f"Giriş boyutları: {x.shape}")
-            
-            # Güvenli alternatif: Basitleştirilmiş işleme
+            print(f"AudioEncoder error: {e}")
+            print(f"Input shape: {x.shape}")
+
+            # Safe fallback: simplified processing
             batch_size = x.size(0)
             x = torch.mean(x, dim=(2, 3))  # Global average pooling [B, C]
             x = torch.nn.functional.normalize(x, p=2, dim=1)
-            x = torch.nn.functional.linear(x, 
+            x = torch.nn.functional.linear(x,
                                           torch.randn(256, x.size(1), device=x.device))
         
         return x
 
 
 class TextEncoder(nn.Module):
-    """Metin kodlayıcı modül - BERT tabanlı"""
+    """BERT-based text encoder module."""
+
     def __init__(self, embed_dim=256):
         super().__init__()
-        # Türkçe BERT modelini kullan
+        # Load the Turkish BERT model
         self.bert = AutoModel.from_pretrained("dbmdz/bert-base-turkish-cased")
-        
-        # BERT çıktısını projekte etmek için
+
+        # Project BERT outputs to the shared embedding size
         self.projection = nn.Linear(self.bert.config.hidden_size, embed_dim)
         
     def forward(self, input_ids, attention_mask):
@@ -445,21 +446,21 @@ class TextEncoder(nn.Module):
 
 
 class MultiModalTransformer(nn.Module):
-    """Çoklu modal transformer modeli - Video, Ses ve Metin için gelişmiş model"""
+    """Enhanced multimodal transformer for video, audio, and text."""
     def __init__(self, embed_dim=256, num_heads=8, num_layers=4, output_dim=5):
         super().__init__()
         
-        # Alt modül enkoderleri - gerçek video ve ses için daha güçlü
+        # Sub-encoders tailored for high-quality video and audio inputs
         self.video_encoder = VideoEncoder(embed_dim, input_shape=(16, 3, 224, 224))
         self.audio_encoder = AudioEncoder(embed_dim)
         self.text_encoder = TextEncoder(embed_dim)
         
-        # Modalite projeksiyon katmanları
+        # Projection layers per modality
         self.video_projection = nn.Linear(embed_dim, embed_dim)
         self.audio_projection = nn.Linear(embed_dim, embed_dim)
         self.text_projection = nn.Linear(embed_dim, embed_dim)
         
-        # Cross-Attention için transformer blokları
+        # Transformer encoder blocks for cross-attention
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim,
             nhead=num_heads,
@@ -469,7 +470,7 @@ class MultiModalTransformer(nn.Module):
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         
-        # Modalite füzyonu için dikkat mekanizması
+        # Attention module for modality fusion
         self.modal_attention = nn.MultiheadAttention(
             embed_dim=embed_dim, 
             num_heads=num_heads, 
@@ -477,7 +478,7 @@ class MultiModalTransformer(nn.Module):
             batch_first=True
         )
         
-        # Füzyon katmanı
+        # Fusion feed-forward network
         self.fusion_layer = nn.Sequential(
             nn.Linear(embed_dim * 3, embed_dim * 2),
             nn.LayerNorm(embed_dim * 2),
@@ -488,7 +489,7 @@ class MultiModalTransformer(nn.Module):
             nn.ReLU()
         )
         
-        # Çıkış katmanı
+        # Output classification head
         self.output_layer = nn.Sequential(
             nn.Linear(embed_dim, embed_dim),
             nn.ReLU(),
@@ -496,97 +497,97 @@ class MultiModalTransformer(nn.Module):
             nn.Linear(embed_dim, output_dim)
         )
         
-        # Embedding boyutu
+        # Store embedding dimension
         self.embed_dim = embed_dim
         
     def forward(self, video, audio, text_input_ids, text_attention_mask):
-        # Her bir modalite için özellikleri çıkar
+        # Extract features for each modality
         try:
-            # Modaliteleri ayrı ayrı kodla
+            # Encode each modality separately
             video_emb = self.video_encoder(video)
             audio_emb = self.audio_encoder(audio)
             text_emb = self.text_encoder(text_input_ids, text_attention_mask)
-            
-            # Projeksiyon katmanları ile özellikleri uyumlu hale getir
+
+            # Align features with the projection layers
             video_emb = self.video_projection(video_emb)
             audio_emb = self.audio_projection(audio_emb)
             text_emb = self.text_projection(text_emb)
-            
-            # Özellikleri birleştir (concatenate) ve füzyon katmanı ile işle
+
+            # Concatenate features and pass through the fusion network
             combined_features = torch.cat([video_emb, audio_emb, text_emb], dim=1)
             fused_features = self.fusion_layer(combined_features)
-            
-            # Sınıflandırma çıktısı
+
+            # Produce classification logits
             output = self.output_layer(fused_features)
-            
+
         except RuntimeError as e:
-            print(f"MultiModalTransformer hatası: {e}")
-            # Daha basit bir modelle devam et
+            print(f"MultiModalTransformer error: {e}")
+            # Fall back to a simplified representation
             batch_size = video.size(0)
-            
-            # Güvenli alternatif
+
+            # Safe fallback features
             video_mean = torch.mean(video, dim=(1, 2, 3, 4))
             audio_mean = torch.mean(audio, dim=(1, 2))
             text_mean = torch.mean(text_input_ids.float(), dim=1)
-            
+
             combined = torch.cat([video_mean, audio_mean, text_mean], dim=1)
             combined = torch.nn.functional.normalize(combined, p=2, dim=1)
-            
-            # Doğrudan çıkış katmanına geç - 5 sınıf için
-            out_dim = 5  # Varsayılan sınıf sayısı
-            output = torch.nn.functional.linear(combined, 
+
+            # Apply a direct linear projection for five classes
+            out_dim = 5  # Default number of classes
+            output = torch.nn.functional.linear(combined,
                                               torch.randn(out_dim, combined.size(1), device=video.device))
         
         return output
 
 
-# Eğitim ve değerlendirme fonksiyonları
+# Training and evaluation helpers
 def train_model(model, train_loader, optimizer, criterion, device, num_epochs=5):
-    """Model eğitim fonksiyonu"""
+    """Train the multimodal model."""
     model.train()
     train_losses = []
     
     for epoch in range(num_epochs):
         epoch_loss = 0
         for batch_idx, batch in enumerate(train_loader):
-            # Veriyi cihaza taşı
+            # Move data to device
             video = batch["video"].to(device)
             audio = batch["audio"].to(device)
             text_input_ids = batch["text_input_ids"].to(device)
             text_attention_mask = batch["text_attention_mask"].to(device)
-            targets = batch["id"].to(device)  # ID'leri hedef olarak kullan
-            
-            # Veri boyutlarını yazdır (hata ayıklama için)
+            targets = batch["id"].to(device)  # Use the ID field as the label
+
+            # Print tensor shapes for debugging on the first batch
             if batch_idx == 0 and epoch == 0:
-                print(f"Video boyutu: {video.shape}")
-                print(f"Audio boyutu: {audio.shape}")
-                print(f"Text input_ids boyutu: {text_input_ids.shape}")
+                print(f"Video shape: {video.shape}")
+                print(f"Audio shape: {audio.shape}")
+                print(f"Text input_ids shape: {text_input_ids.shape}")
             
             # Forward pass
             try:
                 outputs = model(video, audio, text_input_ids, text_attention_mask)
                 loss = criterion(outputs, targets)
                 
-                # Backward pass ve optimize et
+                # Backward pass and optimisation step
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                
+
                 epoch_loss += loss.item()
             except RuntimeError as e:
-                print(f"Hata oluştu (batch {batch_idx}): {e}")
+                print(f"Runtime error (batch {batch_idx}): {e}")
                 print(f"Video shape: {video.shape}, Audio shape: {audio.shape}")
                 continue
-            
-        # Epoch sonunda ortalama kaybı hesapla
+
+        # Track epoch-level loss
         avg_loss = epoch_loss / len(train_loader)
         train_losses.append(avg_loss)
         print(f"Epoch {epoch+1}/{num_epochs}, Loss: {avg_loss:.4f}")
-    
+
     return train_losses
 
 def evaluate_model(model, test_loader, criterion, device):
-    """Model değerlendirme fonksiyonu"""
+    """Evaluate the multimodal model."""
     model.eval()
     total_loss = 0
     correct = 0
@@ -594,29 +595,29 @@ def evaluate_model(model, test_loader, criterion, device):
     
     with torch.no_grad():
         for batch_idx, batch in enumerate(test_loader):
-            # Veriyi cihaza taşı
+            # Move data to device
             video = batch["video"].to(device)
             audio = batch["audio"].to(device)
             text_input_ids = batch["text_input_ids"].to(device)
             text_attention_mask = batch["text_attention_mask"].to(device)
             targets = batch["id"].to(device)
-            
+
             try:
                 # Forward pass
                 outputs = model(video, audio, text_input_ids, text_attention_mask)
                 loss = criterion(outputs, targets)
-                
-                # İstatistikleri hesapla
+
+                # Update metrics
                 total_loss += loss.item()
                 _, predicted = torch.max(outputs.data, 1)
                 total += targets.size(0)
                 correct += (predicted == targets).sum().item()
             except RuntimeError as e:
-                print(f"Değerlendirme sırasında hata oluştu (batch {batch_idx}): {e}")
+                print(f"Runtime error during evaluation (batch {batch_idx}): {e}")
                 print(f"Video shape: {video.shape}, Audio shape: {audio.shape}")
                 continue
-    
-    # Ortalama kayıp ve doğruluk oranı
+
+    # Average loss and accuracy
     avg_loss = total_loss / len(test_loader)
     accuracy = 100 * correct / total
     
@@ -624,10 +625,10 @@ def evaluate_model(model, test_loader, criterion, device):
     return avg_loss, accuracy
 
 
-# Demo için örnek veri oluşturma
+# Demo data generation
 def create_sample_data():
-    """Örnek multimodal veri oluşturur: video, ses ve metin (demo için)"""
-    # Veri dosyalarını oluşturmak için dizinleri kontrol et
+    """Create sample multimodal data: video, audio, and text (demo)."""
+    # Ensure directories exist for generated files
     video_dir = os.path.join(DATA_DIR, "videos")
     audio_dir = os.path.join(DATA_DIR, "audios")
     text_dir = os.path.join(DATA_DIR, "texts")
@@ -635,63 +636,63 @@ def create_sample_data():
     os.makedirs(audio_dir, exist_ok=True)
     os.makedirs(text_dir, exist_ok=True)
     
-    # Metadata dosyası için veri yapısı
+    # Metadata container
     data_entries = []
     
-    # Örnek bir video oluştur (basit renkli kareler dizisi)
+    # Create a simple synthetic video (sequence of coloured squares)
     for i in range(5):
-        # Her örnek için
+        # For each sample
         video_frames = []
-        for j in range(30):  # 30 frame'lik video
-            # Renkli bir kare oluştur (RGB)
+        for j in range(30):  # 30-frame video
+            # Generate a coloured RGB square
             if j < 10:
-                frame = np.ones((64, 64, 3), dtype=np.uint8) * 50  # Koyu gri
+                frame = np.ones((64, 64, 3), dtype=np.uint8) * 50  # Dark gray
             elif j < 20:
-                frame = np.ones((64, 64, 3), dtype=np.uint8) * 150  # Orta gri
+                frame = np.ones((64, 64, 3), dtype=np.uint8) * 150  # Medium gray
             else:
-                frame = np.ones((64, 64, 3), dtype=np.uint8) * 250  # Açık gri
-                
-            # Her örnek için farklı bir renk bileşeni ekle
+                frame = np.ones((64, 64, 3), dtype=np.uint8) * 250  # Light gray
+
+            # Adjust colour channels per sample for variety
             frame[:,:,i % 3] = 200
             video_frames.append(frame)
-        
-        # Videoyu kaydet
+
+        # Save the video
         video_path = os.path.join(video_dir, f"sample_video_{i}.mp4")
         out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*'mp4v'), 10, (64, 64))
         for frame in video_frames:
             out.write(frame)
         out.release()
         
-        # Basit bir sinüs dalgası içeren ses dosyası oluştur
+        # Create an audio file containing a simple sine wave
         audio_path = os.path.join(audio_dir, f"sample_audio_{i}.wav")
         sample_rate = 16000
         t = np.linspace(0, 2, 2 * sample_rate, endpoint=False)
-        # Her örnek için farklı bir frekans
+        # Use a different frequency for each sample
         frequency = 440 * (i + 1)
         audio_data = 0.5 * np.sin(2 * np.pi * frequency * t)
-        # Stereo'ya çevir - scipy için 16-bit int'e dönüştür
+        # Convert to 16-bit integers for scipy
         audio_data_16bit = (audio_data * 32767).astype(np.int16)
-        # Mono ses olarak kaydet (scipy.io.wavfile ile)
+        # Save as mono audio via scipy.io.wavfile
         wavfile.write(audio_path, sample_rate, audio_data_16bit)
-        
-        # İlişkili metin oluştur
+
+        # Generate associated text descriptions
         if i == 0:
-            text = "Bu video gri tonlamalı karelerden oluşmaktadır ve 440 Hz'lik bir ses içerir."
+            text = "This video contains grayscale squares with a 440 Hz tone."
         elif i == 1:
-            text = "Bu video kırmızı tonlarında karelerden oluşmaktadır ve 880 Hz'lik bir ses içerir."
+            text = "This video contains red-tinted squares with an 880 Hz tone."
         elif i == 2:
-            text = "Bu video yeşil tonlarında karelerden oluşmaktadır ve 1320 Hz'lik bir ses içerir."
+            text = "This video contains green-tinted squares with a 1,320 Hz tone."
         elif i == 3:
-            text = "Bu video mavi tonlarında karelerden oluşmaktadır ve 1760 Hz'lik bir ses içerir."
+            text = "This video contains blue-tinted squares with a 1,760 Hz tone."
         else:
-            text = "Bu video karışık tonlardaki karelerden oluşmaktadır ve 2200 Hz'lik bir ses içerir."
-            
-        # Metin dosyası kaydet
+            text = "This video contains mixed-colour squares with a 2,200 Hz tone."
+
+        # Save text file
         text_path = os.path.join(text_dir, f"sample_text_{i}.txt")
         with open(text_path, "w", encoding="utf-8") as f:
             f.write(text)
-        
-        # Metadatalara ekle
+
+        # Append to metadata entries
         data_entries.append({
             "id": i,
             "video_path": os.path.relpath(video_path, DATA_DIR),
@@ -700,142 +701,140 @@ def create_sample_data():
             "text_path": os.path.relpath(text_path, DATA_DIR)
         })
     
-    # JSON dosyasına kaydet
+    # Persist metadata to JSON
     metadata_path = os.path.join(DATA_DIR, "metadata.json")
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(data_entries, f, ensure_ascii=False, indent=4)
     
-    print(f"Örnek veri oluşturuldu. Toplam {len(data_entries)} örnek.")
+    print(f"Demo data created with {len(data_entries)} samples.")
     return metadata_path
 
-# Ana fonksiyon
+# Main execution entry point
 def main():
-    """Ana çalıştırma fonksiyonu"""
-    print("Multimodal model eğitimine başlıyoruz...")
-    
-    # Kullanıcıya veri tipi seçimi yaptır
-    print("\nVeri tipi seçin:")
-    print("1 - Örnek veri (otomatik oluşturulan demo verisi)")
-    print("2 - Gerçek veri (gerçek video, ses ve metin dosyaları)")
-    
-    choice = input("Seçiminiz (1/2): ").strip()
-    
-    # Seçime göre veri oluştur
+    """Main driver function."""
+    print("Starting multimodal model training...")
+
+    # Prompt the user to select the data source
+    print("\nSelect the data source:")
+    print("1 - Sample data (automatically generated demo dataset)")
+    print("2 - Real data (actual video, audio, and text files)")
+
+    choice = input("Your choice (1/2): ").strip()
+
+    # Prepare data according to the chosen option
     if choice == "2":
-        print("\nGerçek veri kullanılacak...")
+        print("\nUsing real data...")
         metadata_path = create_real_data_metadata()
     else:
-        print("\nÖrnek demo verisi oluşturuluyor...")
+        print("\nCreating sample demo data...")
         metadata_path = create_sample_data()
-    
-    # Veri setini hazırla
+
+    # Build the dataset
     dataset = MultiModalDataset(metadata_path)
     
-    # Veri setini eğitim ve test olarak ayır
+    # Split into training and test subsets
     train_size = int(0.8 * len(dataset))
     test_size = len(dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
     
-    # Veri yükleyicileri
+    # Data loaders
     train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=2, shuffle=False)
     
-    # Model oluştur
+    # Instantiate the model
     model = MultiModalTransformer(embed_dim=256, num_heads=4, num_layers=2, output_dim=5).to(device)
-    print(f"Model oluşturuldu: {model.__class__.__name__}")
-    
-    # Kayıp fonksiyonu ve optimizer - daha düşük öğrenme oranı ile
+    print(f"Model initialised: {model.__class__.__name__}")
+
+    # Loss function and optimiser (with weight decay)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=1e-5)
-    
-    # Modeli eğit
-    print("Model eğitimi başlıyor...")
+
+    # Train the model
+    print("Starting model training...")
     train_losses = train_model(model, train_loader, optimizer, criterion, device, num_epochs=10)
     
-    # Modeli değerlendir
-    print("Model değerlendirmesi yapılıyor...")
+    # Evaluate the model
+    print("Running model evaluation...")
     test_loss, test_accuracy = evaluate_model(model, test_loader, criterion, device)
-    
-    # Sınıflandırma sonuçlarını detaylı analiz et
-    print("\nModel Analizi:")
-    print(f"- Toplam Eğitim Epoch: 10")
-    print(f"- Son Eğitim Kaybı: {train_losses[-1]:.4f}")
-    print(f"- Test Kaybı: {test_loss:.4f}")
-    print(f"- Doğruluk Oranı: {test_accuracy:.2f}%")
-    
-    # Sonuçları görselleştir
+
+    # Summarise metrics
+    print("\nModel Summary:")
+    print(f"- Total Training Epochs: 10")
+    print(f"- Final Training Loss: {train_losses[-1]:.4f}")
+    print(f"- Test Loss: {test_loss:.4f}")
+    print(f"- Accuracy: {test_accuracy:.2f}%")
+
+    # Plot training losses
     plt.figure(figsize=(10, 5))
-    plt.plot(train_losses, label='Eğitim Kaybı')
+    plt.plot(train_losses, label='Training Loss')
     plt.xlabel('Epoch')
-    plt.ylabel('Kayıp')
-    plt.title('Eğitim Kaybı')
+    plt.ylabel('Loss')
+    plt.title('Training Loss')
     plt.legend()
     plt.grid(True)
     plt.savefig(os.path.join(DATA_DIR, "training_loss.png"))
     plt.show()
     
-    # Modeli kaydet
+    # Save the trained model
     model_path = os.path.join(DATA_DIR, "multimodal_model.pth")
     torch.save({
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict()
     }, model_path)
-    print(f"Model kaydedildi: {model_path}")
-    
-    # Test veri setinden bir örnek göster
-    # Görselleştirme için orijinal dataset'i kullan (Subset sorununu önlemek için)
-    print("Örnek bir veriyi görselleştirme...")
-    # Orijinal veri setini görselleştirme için kullan, token çözümleme sorunundan kaçınmak için
+    print(f"Model saved to: {model_path}")
+
+    # Visualise a sample from the test set using the original dataset
+    print("Visualising a sample example...")
     visualize_example(model, dataset, device)
     
     return model, test_accuracy
 
 def visualize_example(model, dataset, device):
-    """Test setinden bir örnek gösterimi"""
-    # Rastgele bir örnek seç
+    """Display a sample prediction from the test set."""
+    # Pick a random example
     idx = np.random.randint(len(dataset))
     sample = dataset[idx]
-    
-    # Modeli değerlendirme moduna al
+
+    # Switch model to evaluation mode
     model.eval()
-    
-    # Verileri tensöre dönüştür ve cihaza taşı
+
+    # Convert to tensors and move to device
     video = sample["video"].unsqueeze(0).to(device)
     audio = sample["audio"].unsqueeze(0).to(device)
     text_input_ids = sample["text_input_ids"].unsqueeze(0).to(device)
     text_attention_mask = sample["text_attention_mask"].unsqueeze(0).to(device)
-    
-    # Veri boyutlarını yazdır
-    print(f"Örnek görselleştirme - Video boyutu: {video.shape}")
-    print(f"Örnek görselleştirme - Audio boyutu: {audio.shape}")
-    
-    # Tahmin yap
+
+    # Log tensor shapes
+    print(f"Sample visualisation - Video shape: {video.shape}")
+    print(f"Sample visualisation - Audio shape: {audio.shape}")
+
+    # Make a prediction
     predicted_class = None
     try:
         with torch.no_grad():
             output = model(video, audio, text_input_ids, text_attention_mask)
             _, predicted_class = torch.max(output, 1)
     except RuntimeError as e:
-        print(f"Örnek görselleştirme sırasında hata: {e}")
-        predicted_class = torch.tensor([-1]).to(device)  # Hata durumunda geçersiz sınıf
-    
-    # Gerçek sınıf
+        print(f"Error during sample visualisation: {e}")
+        predicted_class = torch.tensor([-1]).to(device)  # Invalid class on error
+
+    # Ground truth label
     true_class = sample["id"]
-    
-    # Sonuçları göster
-    print(f"\nÖrnek Görselleştirme (Örnek {idx}):")
-    print(f"Gerçek sınıf: {true_class}")
+
+    # Present the results
+    print(f"\nSample Visualisation (Index {idx}):")
+    print(f"True class: {true_class}")
     if predicted_class is not None and predicted_class.item() != -1:
-        print(f"Tahmin edilen sınıf: {predicted_class.item()}")
+        print(f"Predicted class: {predicted_class.item()}")
     else:
-        print("Tahmin yapılamadı (model hatası)")
-    
-    # Videodan birkaç frame'i göster
+        print("Prediction unavailable (model error)")
+
+    # Plot a few frames from the video
     plt.figure(figsize=(15, 5))
     for i in range(min(5, video.size(1))):
         plt.subplot(1, 5, i+1)
         frame = video[0, i].cpu().permute(1, 2, 0)
-        # Normalize edilmiş görüntüyü geri al
+        # Revert normalisation
         frame = frame * torch.tensor([0.229, 0.224, 0.225]) + torch.tensor([0.485, 0.456, 0.406])
         frame = torch.clamp(frame, 0, 1)
         plt.imshow(frame)
@@ -844,55 +843,55 @@ def visualize_example(model, dataset, device):
     plt.savefig(os.path.join(DATA_DIR, "sample_frames.png"))
     plt.show()
     
-    # Ses spektrogramını göster
+    # Display the audio spectrogram
     plt.figure(figsize=(10, 4))
-    # Spektrogram verilerini kontrol et ve 2B bir tensöre dönüştür
+    # Ensure the spectrogram is 2D
     audio_data = sample["audio"].cpu()
     if len(audio_data.shape) == 1:
-        # 1B tensörü 2B'ye genişlet
+        # Expand 1D tensor to 2D
         audio_data = audio_data.unsqueeze(0)
     elif len(audio_data.shape) > 2:
-        # İlk boyutu kullan
+        # Use the first slice if extra dimensions exist
         audio_data = audio_data[0]
-    
+
     plt.imshow(audio_data, aspect='auto', origin='lower')
     plt.colorbar(format='%+2.0f dB')
-    plt.title('Mel Spektrogram')
-    plt.xlabel('Zaman Çerçeveleri')
-    plt.ylabel('Mel Filtre Bantları')
+    plt.title('Mel Spectrogram')
+    plt.xlabel('Time Frames')
+    plt.ylabel('Mel Filter Banks')
     plt.savefig(os.path.join(DATA_DIR, "sample_spectrogram.png"))
     plt.show()
     
-    # Metni göster - tokenizer'a direkt erişim yerine özel tokenleri çıkartan basit bir yol kullan
+    # Retrieve the decoded text, falling back if tokenizer access is limited
     raw_text = ""
     try:
-        # Subset içindeki dataset.dataset erişimi ile orijinal veri setine ulaşmaya çalış
+        # Attempt to reach the original dataset when working with Subset
         if hasattr(dataset, 'dataset') and hasattr(dataset.dataset, 'tokenizer'):
-            # Subset olduğunda
+            # When wrapped by Subset
             tokenizer = dataset.dataset.tokenizer
             raw_text = tokenizer.decode(sample["text_input_ids"].tolist(), skip_special_tokens=True)
         else:
-            # Direkt veri seti olduğunda
+            # When using the original dataset directly
             raw_text = dataset.tokenizer.decode(sample["text_input_ids"].tolist(), skip_special_tokens=True)
     except Exception as e:
-        # Tokenizer erişimi yoksa, özel token kodlarını temizleyen basit bir çözüm uygula
+        # Strip out special token IDs if the tokenizer is unavailable
         text_tokens = sample["text_input_ids"].tolist()
-        # 0, 101, 102 gibi özel token ID'lerini filtrele (BERT özel tokenleri)
+        # Filter out special token IDs such as 0, 101, and 102 (BERT specials)
         text_tokens = [t for t in text_tokens if t > 102 and t != 0]
-        raw_text = f"ID'ler: {text_tokens} (Tokenizer erişilemediğinden ham metin gösterilemiyor)"
-    
-    print(f"Metin: {raw_text}")
+        raw_text = f"IDs: {text_tokens} (raw text unavailable without tokenizer access)"
+
+    print(f"Text: {raw_text}")
 
 
-# Ana programı çalıştır
+# Run the main program
 if __name__ == "__main__":
-    torch.manual_seed(42)  # Tekrarlanabilirlik için
+    torch.manual_seed(42)  # Ensure reproducibility
     try:
         model, accuracy = main()
         print(f"Final test accuracy: {accuracy:.2f}%")
-        print("Program başarıyla tamamlandı!")
+        print("Program finished successfully!")
     except Exception as e:
         import traceback
-        print(f"Program çalıştırılırken bir hata oluştu: {e}")
+        print(f"An error occurred while running the program: {e}")
         traceback.print_exc()
-        print("\nHata oluştu, ancak eğer model kaydedildiyse sonuçları kontrol edebilirsiniz.")
+        print("\nAn error occurred, but you can still inspect saved results if available.")

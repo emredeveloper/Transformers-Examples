@@ -57,7 +57,10 @@ class TestTimeScaling:
     def iterative_refinement(self, prompt, iterations=5, max_new_tokens=100):
         current_response = self.generate_single_response(prompt, max_new_tokens)
         for i in range(iterations):
-            refinement_prompt = f"{prompt}\n\nÖnceki yanıt: {current_response}\n\nBu yanıtı daha iyi hale getir:"
+            refinement_prompt = (
+                f"{prompt}\n\nPrevious response: {current_response}"
+                "\n\nImprove this answer:"
+            )
             current_response = self.generate_single_response(refinement_prompt, max_new_tokens, temperature=0.6)
         return current_response
 
@@ -89,17 +92,17 @@ def score_response(response):
 def benchmark_strategies(model_name="Qwen/Qwen3-0.6B"):
     console = Console()
     tts = TestTimeScaling(model_name)
-    prompt = "Yapay zeka gelecekte insanlığın hayatını nasıl etkileyecek?"
+    prompt = "How will artificial intelligence impact human life in the future?"
     results = []
 
     strategies = [
         ("Best-of-N", lambda: tts.best_of_n_sampling(prompt, num_samples=7, max_new_tokens=80)),
-        ("İteratif İyileştirme", lambda: tts.iterative_refinement(prompt, iterations=5, max_new_tokens=80)),
-        ("Konsensüs Örneklemesi", lambda: tts.consensus_sampling(prompt, num_samples=7, max_new_tokens=80)),
+        ("Iterative Refinement", lambda: tts.iterative_refinement(prompt, iterations=5, max_new_tokens=80)),
+        ("Consensus Sampling", lambda: tts.consensus_sampling(prompt, num_samples=7, max_new_tokens=80)),
     ]
 
     for name, func in strategies:
-        console.print(f"\n[bold cyan]⏳ {name} başlatıldı...[/bold cyan]")
+        console.print(f"\n[bold cyan]⏳ {name} started...[/bold cyan]")
         start = time.time()
         response = func()
         end = time.time()
@@ -110,15 +113,15 @@ def benchmark_strategies(model_name="Qwen/Qwen3-0.6B"):
             "response": response
         })
         results.append(metrics)
-        console.print(Panel(f"[bold green]{name} Yanıtı:[/bold green]\n{response}", expand=False))
+        console.print(Panel(f"[bold green]{name} Response:[/bold green]\n{response}", expand=False))
 
     df = pd.DataFrame(results)
-    table = Table(title="Benchmark Sonuçları", show_header=True, header_style="bold magenta")
-    table.add_column("Strateji", style="cyan")
-    table.add_column("Süre (sn)", justify="right", style="green")
-    table.add_column("Kelime Sayısı", justify="right", style="yellow")
-    table.add_column("Benzersiz Kelimeler", justify="right", style="yellow")
-    table.add_column("Skor", justify="right", style="red")
+    table = Table(title="Benchmark Results", show_header=True, header_style="bold magenta")
+    table.add_column("Strategy", style="cyan")
+    table.add_column("Time (s)", justify="right", style="green")
+    table.add_column("Word Count", justify="right", style="yellow")
+    table.add_column("Unique Words", justify="right", style="yellow")
+    table.add_column("Score", justify="right", style="red")
 
     for _, row in df.iterrows():
         table.add_row(

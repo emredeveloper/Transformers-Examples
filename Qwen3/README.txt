@@ -1,82 +1,80 @@
-# QWEN3 TÜRKÇE DİL MODELİ
+# QWEN3 TURKISH LANGUAGE MODEL
 
-Bu proje, Qwen3 mimarisini baz alan bir Türkçe dil modeli implementasyonudur. Temel amacı, Türkçe finans alanı sorularına cevap verebilen, düşünme süreçlerini modelleyebilen bir yapay zeka modeli oluşturmaktır.
+This project implements a Turkish language model based on the Qwen3 architecture. The primary goal is to build an AI system that can answer finance-related questions in Turkish while modelling intermediate reasoning steps.
 
-## MODEL ÖZELLİKLERİ
+## MODEL FEATURES
 
-### Mimari Bileşenleri
-- **Temel Yapı**: Transformer mimarisi (Encoder-Decoder değil, yalnızca Decoder tabanlı)
-- **Parametre Sayısı**: 100M+ (büyük model konfigürasyonu)
-- **Konumsal Kodlama**: Sinüzoidal konumsal kodlama
-- **Dikkat Mekanizması**: Gruplandırılmış Sorgu Dikkati (GQA - Grouped Query Attention)
-- **Normalizasyon**: LayerNorm (RMSNorm yerine basitlik için)
-- **Aktivasyon Fonksiyonu**: GELU
+### Architectural Components
+- **Core Structure**: Transformer architecture (decoder-only, no encoder)
+- **Parameter Count**: 100M+ (large model configuration)
+- **Positional Encoding**: Sinusoidal position embeddings
+- **Attention Mechanism**: Grouped Query Attention (GQA)
+- **Normalisation**: LayerNorm (kept simple instead of RMSNorm)
+- **Activation Function**: GELU
 
-### Özel Özellikler
-1. **Düşünme Modu**: Model, cevap vermeden önce "düşünme" sürecini simüle edebilir
-   - <think> ve </think> özel tokenları ile işaretlenen düşünme adımları
-   - Düşünme adımları sonrası daha iyi yanıtlar üretebilme
-   
-2. **Türkçe Tokenizer**: Türkçe karakterler için özelleştirilmiş basit tokenizer
-   - Türkçe karakter seti desteği (ç, ğ, ı, ö, ş, ü vb.)
-   - Özel tokenlar için rezerve edilmiş ID'ler
-   
-3. **Soru-Cevap Formatlama**: Finans alanı sorularına özel QA formatı
+### Special Capabilities
+1. **Thinking Mode**: The model can simulate a reasoning phase before producing an answer
+   - Uses custom <think> and </think> tokens to mark reasoning spans
+   - Generates higher-quality answers after the thinking phase
 
-### Model Boyutlandırma Parametreleri
-- **Vocab Boyutu**: 50,000 token
-- **Gizli Boyut (Hidden Size)**: 1024
-- **Katman Sayısı**: 24
-- **Q Başlık Sayısı**: 16
-- **KV Başlık Sayısı**: 8
-- **FFN Boyutu**: 4096
-- **Maksimum Dizi Uzunluğu**: 2048 token
+2. **Turkish Tokeniser**: Lightweight tokenizer tailored for Turkish characters
+   - Supports the extended Turkish character set (ç, ğ, ı, ö, ş, ü, etc.)
+   - Reserves dedicated IDs for special tokens
 
-## VERİ SETİ
+3. **Question-Answer Formatting**: Custom QA format for finance-related prompts
 
-- **Kaynak**: umarigan/turkiye_finance_qa (HuggingFace)
-- **İçerik**: 428 Türkçe finans soru-cevap çifti
-- **Format**: "Soru: {soru}\nCevap: {cevap}"
+### Model Sizing Parameters
+- **Vocabulary Size**: 50,000 tokens
+- **Hidden Size**: 1024
+- **Number of Layers**: 24
+- **Number of Q Heads**: 16
+- **Number of KV Heads**: 8
+- **FFN Dimension**: 4096
+- **Maximum Sequence Length**: 2,048 tokens
 
-## EĞİTİM ÖZELLİKLERİ
+## DATASET
 
-- **Optimizer**: AdamW (öğrenme oranı: 1e-5)
-- **Batch Boyutu**: 2 (büyük model için hafıza optimizasyonu)
-- **Gradyan Clipping**: 1.0 maksimum norm
+- **Source**: umarigan/turkiye_finance_qa (Hugging Face)
+- **Content**: 428 Turkish finance question–answer pairs
+- **Format**: "Soru: {question}\nCevap: {answer}"
+
+## TRAINING DETAILS
+
+- **Optimiser**: AdamW (learning rate 1e-5)
+- **Batch Size**: 2 (keeps memory usage manageable for the large configuration)
+- **Gradient Clipping**: Max norm 1.0
 - **Dropout**: 0.1
-- **Text Generation**: 
-  - Top-k sampling (k=50)
-  - Top-p sampling (p=0.9)
-  - Sıcaklık (temperature): 0.7
+- **Text Generation**:
+  - Top-k sampling (k = 50)
+  - Top-p sampling (p = 0.9)
+  - Temperature: 0.7
 
-## KULLANIM
+## USAGE
 
-Model şu şekilde kullanılabilir:
-1. Standart metin üretimi için `generate_text` fonksiyonu
-2. Düşünme modunda üretim için `think_mode=True` parametresi
+You can interact with the model via:
+1. `generate_text` for standard text generation
+2. Setting `think_mode=True` to enable the reasoning phase
 
-## TEKNİK DETAYLAR
+## TECHNICAL DETAILS
 
-### Gruplandırılmış Sorgu Dikkati (GQA)
-Q için 16 başlık, KV için 8 başlık kullanılarak bellek verimliliği sağlanmıştır. 
-Her KV başlığı birden fazla Q başlığı tarafından paylaşılır.
+### Grouped Query Attention (GQA)
+Sixteen query heads and eight key/value heads share parameters to improve memory efficiency. Each KV head is reused by multiple query heads.
 
-### Veri İşleme
-1. Veri tokenize edilir
-2. Batch halinde gruplandırılır
-3. Attention mask oluşturulur
-4. Causal maskeleme uygulanır
+### Data Processing
+1. Tokenise the dataset
+2. Form mini-batches
+3. Build attention masks
+4. Apply causal masking
 
-### Otomatik Regresif Üretim
-Model, bir sonraki token tahminlerini daha önce üretilen tokenleri kullanarak gerçekleştirir.
+### Autoregressive Generation
+The model predicts the next token based on previously generated tokens, following a standard autoregressive pattern.
 
-## PERFORMANS
+## PERFORMANCE
 
-Model eğitim sonrası finans alanındaki soruları cevaplayabilme yeteneğine sahiptir. 
-Düşünme modu aktivasyonu ile daha karmaşık sorularda iyileştirilmiş yanıtlar sağlayabilir.
+After training, the model can answer finance-related questions in Turkish. Activating thinking mode yields better responses on more complex prompts.
 
-## SINIRLAMALAR
+## LIMITATIONS
 
-- CPU ile eğitim uzun sürebilir
-- Türkçe karakterler için özel tokenizer basit olduğundan büyük dil modellerindeki subword tokenizer kadar etkili değildir
-- Veri seti küçük olduğundan (428 örnek) modelin genelleme yeteneği sınırlı olabilir
+- Training on CPU can be time-consuming
+- The lightweight Turkish tokenizer is less expressive than subword tokenisers used in larger language models
+- The dataset is relatively small (428 examples), so generalisation is limited

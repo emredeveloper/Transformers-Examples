@@ -8,20 +8,20 @@ import re
 from tqdm import tqdm
 from collections import Counter
 
-# HuggingFace veri setini yükle
+# Load the Hugging Face dataset
 dataset = load_dataset('salihturkoglu/se_data_set', split='train')
 instructions = [ex['instruction'] for ex in dataset]
 responses = [ex['response'] for ex in dataset]
 
-# Gelişmiş Türkçe tokenizer
+# Advanced Turkish tokenizer
 def turkish_tokenize(text):
-    # Noktalama, sayılar, Türkçe karakterler ve kelime kökleri için daha iyi ayrıştırma
+    # Better segmentation for punctuation, numbers, Turkish characters, and word stems
     text = re.sub(r"([.,!?;:()\"'])", r" \1 ", text)
     text = re.sub(r"([0-9]+)", r" \1 ", text)
     text = re.sub(r"\s+", " ", text)
     return text.lower().strip().split()
 
-# Vocab oluştur (daha büyük ve çeşitli)
+# Build a richer vocabulary
 PAD_TOKEN = "<PAD>"
 UNK_TOKEN = "<UNK>"
 all_texts = instructions + responses
@@ -36,7 +36,7 @@ def encode(text):
     return [vocab.get(tok, vocab[UNK_TOKEN]) for tok in turkish_tokenize(text)]
 
 def decode(token_ids):
-    # <UNK> oranını azaltmak için tekrarları ve padleri temizle
+    # Remove repeats and pad tokens to reduce the <UNK> ratio
     words = []
     for idx in token_ids:
         if idx == vocab[PAD_TOKEN]:
@@ -47,7 +47,7 @@ def decode(token_ids):
     return " ".join(words)
 
 def build_prompt(instruction, response=None):
-    # Prompt formatı
+    # Prompt format
     if response is not None:
         return f"Instruction: {instruction} Response: {response}"
     else:
@@ -67,7 +67,7 @@ class InstructionResponseDataset(Dataset):
             resp_ids = encode(resp)[:(max_len - prompt_len)]
             resp_ids += [vocab[PAD_TOKEN]] * ((max_len - prompt_len) - len(resp_ids))
             self.inputs.append(torch.tensor(prompt_ids, dtype=torch.long))
-            self.targets.append(torch.tensor(resp_ids, dtype=torch.long))  # Sadece response target!
+            self.targets.append(torch.tensor(resp_ids, dtype=torch.long))  # Response-only target!
 
     def __len__(self):
         return len(self.inputs)
@@ -91,7 +91,7 @@ def add_noise(batch, noise_level=0.5):
     noisy[mask] = random_tokens[mask]
     return noisy
 
-# Cosine noise schedule (daha iyi diffusion için)
+# Cosine noise schedule (better diffusion behavior)
 def cosine_noise_schedule(step, total_steps):
     import math
     return math.cos((step / total_steps) * math.pi / 2)
@@ -115,7 +115,7 @@ class DiffusionTextModel(nn.Module):
         t_emb = self.timestep_embed(timestep).unsqueeze(1)
         prompt_cond = self.prompt_proj(prompt_emb).unsqueeze(1)
         emb = torch.cat([prompt_embs, x_embs], dim=1) + t_emb + prompt_cond
-        # src_key_padding_mask shape düzeltme
+        # Fix the src_key_padding_mask shape
         if src_key_padding_mask is not None:
             # src_key_padding_mask: (batch, response_len) -> (batch, prompt_len + response_len)
             pad = torch.zeros((src_key_padding_mask.shape[0], prompt_embs.shape[1]), dtype=torch.bool, device=src_key_padding_mask.device)
@@ -157,7 +157,7 @@ def train_diffusion_model(model, dataloader, epochs=10, steps=16):
             mask = (batch_targets == vocab[PAD_TOKEN])
             optimizer.zero_grad()
             outputs = model(batch_prompts, noisy_targets, timestep, prompt_emb, src_key_padding_mask=mask)
-            # .view yerine .reshape kullan
+            # Prefer reshape over view
             loss = criterion(outputs.reshape(-1, outputs.size(-1)), batch_targets.reshape(-1))
             loss.backward()
             optimizer.step()
@@ -174,7 +174,7 @@ def generate_response(model, instruction, steps=16, max_len=256, prompt_len=64):
     prompt_ids += [vocab[PAD_TOKEN]] * (prompt_len - len(prompt_ids))
     prompt_tensor = torch.tensor([prompt_ids], dtype=torch.long, device=device)
     prompt_emb = get_prompt_embedding([prompt], vocab, model, prompt_len=prompt_len)
-    # Response kısmı random başlatılır
+    # Initialize the response portion randomly
     response_len = max_len - prompt_len
     response_part = torch.randint(2, len(vocab), (1, response_len), device=device)
     generated = response_part.clone()
@@ -193,12 +193,12 @@ def generate_response(model, instruction, steps=16, max_len=256, prompt_len=64):
 
 test_instruction = instructions[0]
 print('Instruction:', test_instruction)
-print('Gerçek Response:', responses[0])
+print('Ground Truth Response:', responses[0])
 print('Model Response:', generate_response(model, test_instruction, steps=16, max_len=max_len, prompt_len=prompt_len))
 
-test_instruction = "Çift anadal veya yandal yapmak istiyorum. Hangi bölümlerle yapabilirim?"
+test_instruction = "I want to pursue a double major or minor. Which departments can I pair it with?"
 print('Instruction:', test_instruction)
-print('Gerçek Response:', responses[instructions.index(test_instruction)] if test_instruction in instructions else "Yok")
+print('Ground Truth Response:', responses[instructions.index(test_instruction)] if test_instruction in instructions else "Not Found")
 print('Model Response:', generate_response(model, test_instruction, steps=16, max_len=max_len, prompt_len=prompt_len))
 
 def evaluate_diffusion_model(model, dataset, n_samples=100, steps=16, max_len=256, prompt_len=64):
@@ -228,6 +228,6 @@ def evaluate_diffusion_model(model, dataset, n_samples=100, steps=16, max_len=25
         correct += ((generated == tgt) & mask).sum().item()
         loop.set_postfix(acc=(correct/total if total > 0 else 0.0))
     accuracy = correct / total if total > 0 else 0.0
-    print(f"Test doğruluğu: {accuracy:.2%} ({correct}/{total})")
+    print(f"Test accuracy: {accuracy:.2%} ({correct}/{total})")
 
 evaluate_diffusion_model(model, dataset, n_samples=100, steps=16, max_len=max_len, prompt_len=prompt_len)

@@ -14,43 +14,43 @@ def print_section(title, color="cyan"):
     """Print a section header with rich formatting"""
     console.rule(f"[bold {color}]{title}", style=color)
 
-# --- 1. Daha Derin bir PyTorch Modeli Tanımla ---
+# --- 1. Define a Deeper PyTorch Model ---
 class DeepMLP(nn.Module):
     def __init__(self, input_dim, hidden_dims, output_dim, dropout_rate=0.1):
         """
-        Derin bir çok katmanlı algılayıcı (MLP) modeli
-        
+        A deep multi-layer perceptron (MLP) model
+
         Args:
-            input_dim: Giriş boyutu
-            hidden_dims: Gizli katman boyutlarını içeren liste
-            output_dim: Çıkış boyutu
-            dropout_rate: Dropout oranı (varsayılan: 0.1)
+            input_dim: Input dimension
+            hidden_dims: List containing the hidden layer sizes
+            output_dim: Output dimension
+            dropout_rate: Dropout rate (default: 0.1)
         """
         super().__init__()
         self.layers = nn.ModuleList()
-        
-        # Giriş katmanı
+
+        # Input layer
         prev_dim = input_dim
-        
-        # Gizli katmanları oluştur
+
+        # Create hidden layers
         for i, hidden_dim in enumerate(hidden_dims):
             self.layers.append(nn.Linear(prev_dim, hidden_dim))
             self.layers.append(nn.BatchNorm1d(hidden_dim))
             self.layers.append(nn.ReLU())
             self.layers.append(nn.Dropout(dropout_rate))
             prev_dim = hidden_dim
-            
-        # Çıkış katmanı
+
+        # Output layer
         self.output_layer = nn.Linear(prev_dim, output_dim)
-        
-        # Ağırlık başlatma
+
+        # Weight initialization
         self._init_weights()
-        
-        # Model bilgilerini göster
+
+        # Display model information
         self._print_model_info(input_dim, hidden_dims, output_dim, dropout_rate)
-    
+
     def _init_weights(self):
-        """Ağırlıkları Xavier/Glorot başlatma yöntemiyle başlat"""
+        """Initialize weights using Xavier/Glorot initialization"""
         for layer in self.layers:
             if isinstance(layer, nn.Linear):
                 nn.init.xavier_uniform_(layer.weight)
@@ -59,179 +59,176 @@ class DeepMLP(nn.Module):
         nn.init.xavier_uniform_(self.output_layer.weight)
         if self.output_layer.bias is not None:
             nn.init.zeros_(self.output_layer.bias)
-    
+
     def _print_model_info(self, input_dim, hidden_dims, output_dim, dropout_rate):
-        """Model yapısı hakkında bilgi göster"""
+        """Display information about the model architecture"""
         total_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        
+
         info_table = Table(show_header=False, box=box.ROUNDED, show_edge=False)
-        info_table.add_column("Özellik", style="cyan", no_wrap=True)
-        info_table.add_column("Değer", style="green")
-        
-        info_table.add_row("Model Türü", "Derin Çok Katmanlı Algılayıcı (MLP)")
-        info_table.add_row("Toplam Parametre", f"{total_params:,}")
-        info_table.add_row("Giriş Boyutu", str(input_dim))
-        info_table.add_row("Gizli Katmanlar", " → ".join(map(str, hidden_dims)))
-        info_table.add_row("Çıkış Boyutu", str(output_dim))
-        info_table.add_row("Dropout Oranı", str(dropout_rate))
-        
+        info_table.add_column("Feature", style="cyan", no_wrap=True)
+        info_table.add_column("Value", style="green")
+
+        info_table.add_row("Model Type", "Deep Multi-Layer Perceptron (MLP)")
+        info_table.add_row("Total Parameters", f"{total_params:,}")
+        info_table.add_row("Input Dimension", str(input_dim))
+        info_table.add_row("Hidden Layers", " → ".join(map(str, hidden_dims)))
+        info_table.add_row("Output Dimension", str(output_dim))
+        info_table.add_row("Dropout Rate", str(dropout_rate))
+
         console.print(Panel(
             info_table,
-            title="[bold green]Model Yapılandırması[/]",
+            title="[bold green]Model Configuration[/]",
             border_style="green",
             padding=(1, 2)
         ))
-    
+
     def forward(self, x):
-        """İleri yayılım"""
-        # Gizli katmanlardan geçir
+        """Forward pass"""
+        # Pass through hidden layers
         for layer in self.layers:
             x = layer(x)
-            
-        # Çıkış katmanı
+
+        # Output layer
         x = self.output_layer(x)
         return x
 
-# --- Kanca (Hook) için Global Depolama ve Durum Yönetimi ---
-# Gerçek bir uygulamada bu durumu daha temiz yönetmek istersiniz (örneğin bir sınıf içinde).
+# --- Global Storage and State Management for Hooks ---
+# In a real application you would likely manage this state in a cleaner way (e.g., inside a class).
 hook_state = {
-    "captured_activation": None,    # Yakalanan aktivasyonu saklamak için
-    "is_intervention_mode": False,  # Müdahale modunda olup olmadığımızı belirtir
-    "neuron_to_modify_idx": 0,    # Hangi nöronun aktivasyonuna müdahale edileceği
-    "intervention_value": 0.0     # Müdahale edilecek yeni değer
+    "captured_activation": None,    # Stores the captured activation
+    "is_intervention_mode": False,  # Indicates whether we are in intervention mode
+    "neuron_to_modify_idx": 0,    # Which neuron's activation to intervene on
+    "intervention_value": 0.0     # The value to inject during the intervention
 }
 
-# --- 2. Aktivasyonları Yakalamak ve Değiştirmek için bir Kanca (Hook) Uygula ---
+# --- 2. Apply a Hook to Capture and Modify Activations ---
 def activation_hook_fn(module, input_args, output_tensor):
     """
-    Bu bir PyTorch ileri (forward) kancasıdır.
-    Eğer 'is_intervention_mode' False ise, katmanın çıkış aktivasyonunu yakalar.
-    Eğer 'is_intervention_mode' True ise, belirtilen bir nöronun aktivasyonunu değiştirir.
+    This is a PyTorch forward hook.
+    If 'is_intervention_mode' is False, it captures the layer's output activation.
+    If 'is_intervention_mode' is True, it modifies the activation of a specified neuron.
     """
     global hook_state
 
     if not hook_state["is_intervention_mode"]:
-        # Normal (yakalama) mod: Aktivasyonu sakla
+        # Normal (capture) mode: store the activation
         hook_state["captured_activation"] = output_tensor.clone().detach()
-        # print(f"Kanca (Yakalama): {module} çıkışı yakalandı: {hook_state['captured_activation']}")
-        return None # Çıkışı değiştirme, orijinali kullanılsın
+        return None  # Do not modify the output
     else:
-        # Müdahale modu: Aktivasyonu değiştir
-        modified_output = output_tensor.clone() # Değişiklik yapmadan önce klonla!
+        # Intervention mode: modify the activation
+        modified_output = output_tensor.clone()  # Clone before modifying
 
-        # Örneğin, ilk nöronun (batch_size=1 varsayımıyla) aktivasyonunu değiştir
-        # output_tensor'un şekli [batch_size, num_features] beklenir
-        if modified_output.ndim == 2 and modified_output.shape[0] == 1: # [1, hidden_dim] gibi
+        # For example, change the activation of the first neuron (assuming batch_size=1)
+        # The output tensor is expected to have shape [batch_size, num_features]
+        if modified_output.ndim == 2 and modified_output.shape[0] == 1:  # e.g. [1, hidden_dim]
             neuron_idx = hook_state["neuron_to_modify_idx"]
             if 0 <= neuron_idx < modified_output.shape[1]:
-                # print(f"Kanca (Müdahale): {module} Nöron {neuron_idx} orijinal değeri: {modified_output[0, neuron_idx]}")
                 modified_output[0, neuron_idx] = hook_state["intervention_value"]
-                # print(f"Kanca (Müdahale): {module} Nöron {neuron_idx} yeni değeri: {modified_output[0, neuron_idx]}")
-                hook_state["captured_activation"] = modified_output.clone().detach() # Değiştirilmiş aktivasyonu da sakla
-                return modified_output # Değiştirilmiş aktivasyonu döndür
+                hook_state["captured_activation"] = modified_output.clone().detach()  # Store the modified activation
+                return modified_output  # Return the modified activation
             else:
-                print(f"Uyarı: Nöron indeksi {neuron_idx} sınırlar dışında.")
-                return None # Bir sorun varsa orijinali döndür
+                print(f"Warning: Neuron index {neuron_idx} is out of bounds.")
+                return None  # Fall back to the original activation on error
         else:
-            print(f"Uyarı: Kanca, [1, num_features] şeklinde aktivasyon bekliyordu, gelen: {modified_output.shape}")
-            return None # Bir sorun varsa orijinali döndür
+            print(f"Warning: The hook expected an activation shaped like [1, num_features], received: {modified_output.shape}")
+            return None  # Fall back to the original activation on error
 
-# --- Model ve Veri Kurulumu ---
+# --- Model and Data Setup ---
 input_dim = 10
-hidden_dims = [64, 32, 16]  # Daha derin mimari
+hidden_dims = [64, 32, 16]  # Deeper architecture
 output_dim = 2
 dropout_rate = 0.1
 
-# Modeli oluştur
+# Create the model
 model = DeepMLP(input_dim, hidden_dims, output_dim, dropout_rate)
 
-# Kullanılabilir cihazı belirle (GPU varsa onu kullan)
+# Detect the available device (use GPU if present)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
 
-# Model özetini göster
-console.print(f"\n[bold]Model {device} cihazına yüklendi.[/]")
-console.print(f"Eğitilebilir parametre sayısı: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
+# Display a model summary
+console.print(f"\n[bold]Model loaded to {device}.[/]")
+console.print(f"Number of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
 
-# Tüm ReLU katmanlarına kancaları kaydet
+# Register hooks on all ReLU layers
 hook_handles = []
 for i, layer in enumerate(model.layers):
     if isinstance(layer, nn.ReLU):
         handle = layer.register_forward_hook(activation_hook_fn)
         hook_handles.append(handle)
-        print(f"ReLU katmanına kanca eklendi: {i}")
+        print(f"Hook added to ReLU layer: {i}")
 
 if not hook_handles:
-    raise ValueError("Modelde hiç ReLU katmanı bulunamadı!")
+    raise ValueError("No ReLU layers found in the model!")
 
-# Rastgele bir girdi verisi oluştur (basitlik için batch_size=1)
+# Create random input data (batch_size=1 for simplicity)
 dummy_input = torch.randn(1, input_dim).to(device)
 
-# Girdi verisi hakkında bilgi
+# Display information about the input data
 input_info = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
-input_info.add_column("Özellik", style="cyan")
-input_info.add_column("Değer", style="green")
-input_info.add_row("Girdi Boyutu", f"{tuple(dummy_input.shape)}")
-input_info.add_row("Min Değer", f"{dummy_input.min().item():.4f}")
-input_info.add_row("Maksimum Değer", f"{dummy_input.max().item():.4f}")
-input_info.add_row("Ortalama", f"{dummy_input.mean().item():.4f}")
-input_info.add_row("Standart Sapma", f"{dummy_input.std().item():.4f}")
+input_info.add_column("Feature", style="cyan")
+input_info.add_column("Value", style="green")
+input_info.add_row("Input Shape", f"{tuple(dummy_input.shape)}")
+input_info.add_row("Minimum", f"{dummy_input.min().item():.4f}")
+input_info.add_row("Maximum", f"{dummy_input.max().item():.4f}")
+input_info.add_row("Mean", f"{dummy_input.mean().item():.4f}")
+input_info.add_row("Standard Deviation", f"{dummy_input.std().item():.4f}")
 
 console.print(Panel(
     input_info,
-    title="[bold blue]Girdi Verisi İstatistikleri[/]",
+    title="[bold blue]Input Data Statistics[/]",
     border_style="blue",
     padding=(1, 2)
 ))
 
-# İlk 5 özelliği göster
+# Show the first five features
 input_sample = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
-input_sample.add_column("Özellik İndeksi", style="cyan")
-input_sample.add_column("Değer", style="green")
+input_sample.add_column("Feature Index", style="cyan")
+input_sample.add_column("Value", style="green")
 
 for i, val in enumerate(dummy_input.squeeze().cpu().numpy()[:5]):
     input_sample.add_row(f"{i}", f"{val:.6f}")
 
 console.print(Panel(
-    input_info,
-    title="[bold blue]Girdi Verisi (İlk 5 Özellik)[/]",
+    input_sample,
+    title="[bold blue]Input Data (First 5 Features)[/]",
     border_style="blue",
     padding=(1, 2)
 ))
-print_section("🔧 Model ve Veri Kurulumu")
-console.print(f"[bold]Model Yapısı:[/] [cyan]Input: {input_dim}[/] → [green]Hidden: {hidden_dim}[/] → [yellow]Output: {output_dim}[/]")
-console.print(f"[bold]Girdi Verisi:[/] {dummy_input.squeeze().tolist()[:5]}... [dim](ilk 5 özellik gösteriliyor)[/dim]\n")
+print_section("🔧 Model and Data Setup")
+console.print(f"[bold]Model Architecture:[/] [cyan]Input: {input_dim}[/] → [green]Hidden: {hidden_dims}[/] → [yellow]Output: {output_dim}[/]")
+console.print(f"[bold]Input Sample:[/] {dummy_input.squeeze().tolist()[:5]}... [dim](showing the first 5 features)[/dim]\n")
 
-# --- 3. "Temiz Çalıştırma": Temel aktivasyonları ve çıktıyı al ---
-print_section("🔍 Temiz Çalıştırma (Müdahalesiz)")
+# --- 3. "Clean Run": Capture the baseline activations and output ---
+print_section("🔍 Clean Run (No Intervention)")
 
 hook_state["is_intervention_mode"] = False
 with torch.no_grad():
     original_output = model(dummy_input)
     clean_hidden_activation = hook_state["captured_activation"]
 
-# Gizli katman aktivasyonlarını gösteren tablo
+# Table showing hidden layer activations
 table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
-table.add_column("Nöron", style="dim", width=12)
-table.add_column("Aktivasyon Değeri", justify="right")
+table.add_column("Neuron", style="dim", width=12)
+table.add_column("Activation Value", justify="right")
 
 for i, val in enumerate(clean_hidden_activation.squeeze().tolist()):
-    table.add_row(f"Nöron {i}", f"{val:.4f}")
+    table.add_row(f"Neuron {i}", f"{val:.4f}")
 
 console.print(Panel.fit(
     table,
-    title="[bold]Gizli Katman Aktivasyonları (ReLU Sonrası)",
+    title="[bold]Hidden Layer Activations (Post-ReLU)",
     border_style="green",
     padding=(1, 2)
 ))
 
-console.print(f"\n[bold]Model Çıktısı:[/] {original_output.squeeze().tolist()}")
+console.print(f"\n[bold]Model Output:[/] {original_output.squeeze().tolist()}")
 console.rule(style="dim")
 
-# --- 4. "Müdahale Çalıştırması": Bir aktivasyonu değiştir ve etkiyi gör ---
-print_section("🔧 Müdahale Çalıştırması")
+# --- 4. "Intervention Run": Change an activation and observe the effect ---
+print_section("🔧 Intervention Run")
 
-# Müdahale ayarları
+# Intervention settings
 neuron_idx = 0
 new_value = 10.0
 
@@ -243,29 +240,29 @@ with torch.no_grad():
     intervened_output = model(dummy_input)
     intervened_hidden_activation = hook_state["captured_activation"]
 
-# Müdahale özeti
-console.print(f"[bold]Müdahale Detayları:[/]")
-console.print(f"  • [yellow]Hedef Nöron:[/] [bold]{neuron_idx}[/]")
-console.print(f"  • [yellow]Yeni Değer:[/] [bold]{new_value}[/]")
+# Intervention summary
+console.print(f"[bold]Intervention Details:[/]")
+console.print(f"  • [yellow]Target Neuron:[/] [bold]{neuron_idx}[/]")
+console.print(f"  • [yellow]New Value:[/] [bold]{new_value}[/]")
 
-# Müdahale edilmiş aktivasyonlar tablosu
+# Table with modified activations
 modified_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
-modified_table.add_column("Nöron", style="dim", width=12)
-modified_table.add_column("Önceki Değer", justify="right")
-modified_table.add_column("Yeni Değer", justify="right")
-modified_table.add_column("Durum", justify="center")
+modified_table.add_column("Neuron", style="dim", width=12)
+modified_table.add_column("Previous Value", justify="right")
+modified_table.add_column("New Value", justify="right")
+modified_table.add_column("Status", justify="center")
 
 for i, (orig, new) in enumerate(zip(
     clean_hidden_activation.squeeze().tolist(),
     intervened_hidden_activation.squeeze().tolist()
 )):
     modified = i == neuron_idx
-    status = "[bold red]✗ Değiştirildi" if modified else "[green]✓ Aynı"
+    status = "[bold red]✗ Modified" if modified else "[green]✓ Unchanged"
     orig_val = f"[strike dim]{orig:.4f}[/]" if modified else f"{orig:.4f}"
     new_val = f"[bold red]{new:.4f}" if modified else f"{new:.4f}"
-    
+
     modified_table.add_row(
-        f"Nöron {i}",
+        f"Neuron {i}",
         orig_val,
         new_val,
         status
@@ -273,23 +270,23 @@ for i, (orig, new) in enumerate(zip(
 
 console.print(Panel.fit(
     modified_table,
-    title="[bold]Gizli Katman Karşılaştırması",
+    title="[bold]Hidden Layer Comparison",
     border_style="yellow",
     padding=(1, 2)
 ))
 
-console.print(f"\n[bold]Yeni Model Çıktısı:[/] {intervened_output.squeeze().tolist()}")
+console.print(f"\n[bold]New Model Output:[/] {intervened_output.squeeze().tolist()}")
 console.rule(style="dim")
 
-# --- 5. Karşılaştır ---
-print_section("📊 Sonuçların Karşılaştırılması")
+# --- 5. Compare Results ---
+print_section("📊 Comparing Results")
 
-# Çıktı karşılaştırma tablosu
+# Output comparison table
 output_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
-output_table.add_column("Çıktı Nöronu", style="dim", width=12)
-output_table.add_column("Orijinal Değer", justify="right")
-output_table.add_column("Yeni Değer", justify="right")
-output_table.add_column("Fark", justify="right")
+output_table.add_column("Output Neuron", style="dim", width=12)
+output_table.add_column("Original Value", justify="right")
+output_table.add_column("New Value", justify="right")
+output_table.add_column("Difference", justify="right")
 
 orig_outputs = original_output.squeeze().tolist()
 new_outputs = intervened_output.squeeze().tolist()
@@ -298,7 +295,7 @@ diffs = torch.abs(original_output - intervened_output).squeeze().tolist()
 for i, (orig, new, diff) in enumerate(zip(orig_outputs, new_outputs, diffs)):
     diff_style = "[red]" if diff > 0.1 else "[green]"
     output_table.add_row(
-        f"Çıktı {i}",
+        f"Output {i}",
         f"{orig:.6f}",
         f"{new:.6f}",
         f"{diff_style}{diff:.6f}"
@@ -306,21 +303,22 @@ for i, (orig, new, diff) in enumerate(zip(orig_outputs, new_outputs, diffs)):
 
 console.print(Panel.fit(
     output_table,
-    title="[bold]Çıktı Karşılaştırması",
+    title="[bold]Output Comparison",
     border_style="blue",
     padding=(1, 2)
 ))
 
-# Özet istatistikler
-console.print("\n[bold]📈 Özet İstatistikler:[/]")
-console.print(f"  • [yellow]Toplam Mutlak Fark:[/] {torch.sum(torch.abs(original_output - intervened_output)):.6f}")
-console.print(f"  • [yellow]Maksimum Fark:[/] {torch.max(torch.abs(original_output - intervened_output)):.6f}")
-console.print(f"  • [yellow]Ortalama Mutlak Fark:[/] {torch.mean(torch.abs(original_output - intervened_output)):.6f}")
+# Summary statistics
+console.print("\n[bold]📈 Summary Statistics:[/]")
+console.print(f"  • [yellow]Total Absolute Difference:[/] {torch.sum(torch.abs(original_output - intervened_output)):.6f}")
+console.print(f"  • [yellow]Maximum Difference:[/] {torch.max(torch.abs(original_output - intervened_output)):.6f}")
+console.print(f"  • [yellow]Mean Absolute Difference:[/] {torch.mean(torch.abs(original_output - intervened_output)):.6f}")
 
-# Kanca temizliği hakkında bilgi
-console.print("\n[dim]Not: Kanca başarıyla kaldırıldı.[/dim]")
+# Information about hook cleanup
+console.print("\n[dim]Note: Hooks have been removed successfully.[/dim]")
 
 
-# Kancayı işiniz bittiğinde kaldırmayı unutmayın,
-# özellikle bir notebook'ta hücreleri tekrar tekrar çalıştırıyorsanız.
-hook_handle.remove()
+# Always remove hooks when you're done, especially if you are repeatedly
+# executing cells in a notebook environment.
+for handle in hook_handles:
+    handle.remove()
